@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JARVIS Body Hologram</title>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.174.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.174.0/examples/jsm/"}}
+</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#050403;overflow:hidden;font-family:'Segoe UI',sans-serif;color:#eafff9}
+canvas{display:block}
+.hud{position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:10}
+.hud-top{position:absolute;top:16px;left:20px;right:20px;display:flex;justify-content:space-between;align-items:flex-start}
+.hud-title{font-size:11px;letter-spacing:4px;color:#38e0ff;text-transform:uppercase}
+.hud-sub{font-size:9px;color:#4e837b;letter-spacing:2px;margin-top:4px}
+.hud-stats{text-align:right}
+.hud-stats div{font-size:10px;color:#4e837b;margin-bottom:4px}
+.hud-stats span{color:#eafff9;font-size:14px}
+.hud-bottom{position:absolute;bottom:20px;left:0;right:0;text-align:center;pointer-events:auto}
+.hud-btns{display:flex;gap:8px;justify-content:center;margin-bottom:10px}
+.hud-btn{padding:6px 18px;border-radius:14px;border:1px solid rgba(56,224,255,0.2);background:transparent;color:#38e0ff;font-size:11px;cursor:pointer;letter-spacing:1px}
+.hud-btn:hover{background:rgba(56,224,255,0.06)}
+.hud-btn.sel{background:rgba(56,224,255,0.1);border-color:rgba(56,224,255,0.4)}
+.hud-label{font-size:10px;color:#4e837b;letter-spacing:1px}
+.hud-legend{display:flex;gap:14px;justify-content:center;margin-top:8px}
+.hud-leg{display:flex;align-items:center;gap:5px;font-size:10px;color:#79b3aa}
+.hud-dot{width:8px;height:8px;border-radius:50%}
+.zone-info{position:fixed;top:50%;right:20px;transform:translateY(-50%);text-align:right;pointer-events:none}
+.zone-info div{font-size:9px;color:#4e837b;margin-bottom:6px;transition:all 0.3s}
+.zone-info div.active{color:#ff6a5a;font-size:10px}
+.zone-info div span{display:block;font-size:7px;color:#3a5a55}
+.weight-display{position:fixed;top:50%;left:20px;transform:translateY(-50%);pointer-events:none}
+.weight-num{font-size:36px;color:rgba(56,224,255,0.3);font-weight:200}
+.weight-unit{font-size:11px;color:#4e837b;letter-spacing:2px}
+.weight-ht{font-size:11px;color:#3a5a55;margin-top:4px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hud">
+<div class="hud-top">
+<div>
+<div class="hud-title">Body profile</div>
+<div class="hud-sub">Justin Diaz &middot; updated Sep 2026</div>
+</div>
+<div class="hud-stats">
+<div><span>96</span> days to 40</div>
+<div><span>3</span> sessions logged</div>
+<div><span>54</span> total sets</div>
+</div>
+</div>
+<div class="weight-display">
+<div class="weight-num">200</div>
+<div class="weight-unit">LBS</div>
+<div class="weight-ht">5'9"</div>
+</div>
+<div class="zone-info" id="zone-info"></div>
+<div class="hud-bottom">
+<div class="hud-btns">
+<button class="hud-btn sel" onclick="setProgram('b',this)">Strength B</button>
+<button class="hud-btn" onclick="setProgram('a',this)">Strength A</button>
+</div>
+<div class="hud-label" id="prog-label">Strength B: upper pull/push + accessories</div>
+<div class="hud-legend">
+<div class="hud-leg"><div class="hud-dot" style="background:#ff4030"></div>Today's targets</div>
+<div class="hud-leg"><div class="hud-dot" style="background:rgba(56,224,255,0.15)"></div>Inactive</div>
+</div>
+</div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const W=window.innerWidth, H=window.innerHeight;
+const renderer=new THREE.WebGLRenderer({canvas:document.getElementById('c'),antialias:true});
+renderer.setSize(W,H);renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setClearColor(0x050403);renderer.toneMapping=THREE.ACESFilmicToneMapping;
+
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(40,W/H,0.1,100);
+camera.position.set(0,1.7,4.5);
+
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.target.set(0,0.9,0);controls.enablePan=false;
+controls.minDistance=2.5;controls.maxDistance=7;controls.update();
+
+// Lights
+scene.add(new THREE.AmbientLight(0x112233,0.3));
+const keyLight=new THREE.DirectionalLight(0x38e0ff,0.4);
+keyLight.position.set(2,3,4);scene.add(keyLight);
+const rimLight=new THREE.DirectionalLight(0x1a4a6a,0.3);
+rimLight.position.set(-2,2,-3);scene.add(rimLight);
+const underLight=new THREE.PointLight(0x38e0ff,0.2,10);
+underLight.position.set(0,-0.5,0);scene.add(underLight);
+
+// Holographic material
+function holoMat(color,opacity){
+  return new THREE.MeshStandardMaterial({
+    color:color||0x38e0ff,wireframe:true,transparent:true,opacity:opacity||0.12,
+    emissive:color||0x38e0ff,emissiveIntensity:0.3,
+  });
+}
+function activeHoloMat(){
+  return new THREE.MeshStandardMaterial({
+    color:0xff4030,wireframe:true,transparent:true,opacity:0.25,
+    emissive:0xff4030,emissiveIntensity:0.6,
+  });
+}
+
+// Body parameters (5'9" = 1.75m, 200lb = muscular-stocky build)
+const bodyHeight=1.75;
+const zones={};
+const baseMat=holoMat(0x38e0ff,0.1);
+const activeMat=activeHoloMat();
+const bodyGroup=new THREE.Group();
+
+function capsule(r,h,rs,hs){return new THREE.CylinderGeometry(r,r,h,rs,hs);}
+function sphere(r,s){return new THREE.SphereGeometry(r,s,s);}
+
+// Head
+const head=new THREE.Mesh(sphere(0.11,16),holoMat(0x38e0ff,0.08));
+head.position.y=1.65;bodyGroup.add(head);
+
+// Neck
+const neck=new THREE.Mesh(capsule(0.05,0.08,8,1),baseMat);
+neck.position.y=1.52;bodyGroup.add(neck);
+
+// Torso - chest zone
+const chestGeo=new THREE.BoxGeometry(0.38,0.22,0.2,4,4,4);
+const chest=new THREE.Mesh(chestGeo,baseMat.clone());
+chest.position.set(0,1.35,0);bodyGroup.add(chest);zones.chest=chest;
+
+// Back zone (slightly behind torso)
+const backGeo=new THREE.BoxGeometry(0.36,0.25,0.1,4,4,4);
+const back=new THREE.Mesh(backGeo,baseMat.clone());
+back.position.set(0,1.33,-0.08);bodyGroup.add(back);zones.back=back;
+
+// Shoulders
+const shoulderGeo=sphere(0.065,10);
+const shoulderL=new THREE.Mesh(shoulderGeo,baseMat.clone());
+shoulderL.position.set(-0.24,1.42,0);bodyGroup.add(shoulderL);
+const shoulderR=new THREE.Mesh(shoulderGeo.clone(),baseMat.clone());
+shoulderR.position.set(0.24,1.42,0);bodyGroup.add(shoulderR);
+zones.shoulders=[shoulderL,shoulderR];
+
+// Arms (upper + forearm)
+function makeArm(side){
+  const s=side==='l'?-1:1;
+  const upper=new THREE.Mesh(capsule(0.045,0.26,8,2),baseMat.clone());
+  upper.position.set(s*0.27,1.22,0);bodyGroup.add(upper);
+  const lower=new THREE.Mesh(capsule(0.035,0.24,8,2),baseMat.clone());
+  lower.position.set(s*0.29,0.96,0);bodyGroup.add(lower);
+  return [upper,lower];
+}
+zones.arms=[...makeArm('l'),...makeArm('r')];
+
+// Core / abs
+const coreGeo=new THREE.BoxGeometry(0.3,0.2,0.16,4,4,4);
+const core=new THREE.Mesh(coreGeo,baseMat.clone());
+core.position.set(0,1.12,0);bodyGroup.add(core);zones.core=core;
+
+// Hip / glutes
+const gluteGeo=new THREE.BoxGeometry(0.34,0.12,0.2,4,2,4);
+const glutes=new THREE.Mesh(gluteGeo,baseMat.clone());
+glutes.position.set(0,0.95,0);bodyGroup.add(glutes);zones.glutes=glutes;
+
+// Quads
+function makeQuad(side){
+  const s=side==='l'?-1:1;
+  const q=new THREE.Mesh(capsule(0.06,0.38,8,2),baseMat.clone());
+  q.position.set(s*0.1,0.7,0);bodyGroup.add(q);return q;
+}
+zones.quads=[makeQuad('l'),makeQuad('r')];
+
+// Hamstrings
+function makeHam(side){
+  const s=side==='l'?-1:1;
+  const h=new THREE.Mesh(capsule(0.05,0.35,8,2),baseMat.clone());
+  h.position.set(s*0.1,0.68,-0.03);bodyGroup.add(h);return h;
+}
+zones.hamstrings=[makeHam('l'),makeHam('r')];
+
+// Calves
+function makeCalf(side){
+  const s=side==='l'?-1:1;
+  const c=new THREE.Mesh(capsule(0.04,0.3,8,2),baseMat.clone());
+  c.position.set(s*0.1,0.35,0);bodyGroup.add(c);return c;
+}
+zones.calves=[makeCalf('l'),makeCalf('r')];
+
+// Feet
+function makeFoot(side){
+  const s=side==='l'?-1:1;
+  const f=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.03,0.12,2,1,2),baseMat.clone());
+  f.position.set(s*0.1,0.05,0.02);bodyGroup.add(f);return f;
+}
+makeFoot('l');makeFoot('r');
+
+// Platform ring
+const ringGeo=new THREE.RingGeometry(0.6,0.62,48);
+const ringMat=new THREE.MeshBasicMaterial({color:0x38e0ff,transparent:true,opacity:0.08,side:THREE.DoubleSide});
+const ring=new THREE.Mesh(ringGeo,ringMat);
+ring.rotation.x=-Math.PI/2;ring.position.y=0.01;bodyGroup.add(ring);
+
+const ring2=new THREE.Mesh(new THREE.RingGeometry(0.45,0.46,48),ringMat.clone());
+ring2.rotation.x=-Math.PI/2;ring2.position.y=0.01;ring2.material.opacity=0.04;bodyGroup.add(ring2);
+
+scene.add(bodyGroup);
+
+// Post-processing
+const composer=new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene,camera));
+const bloom=new UnrealBloomPass(new THREE.Vector2(W,H),0.7,0.5,0.3);
+composer.addPass(bloom);
+
+// Programs
+const programs={
+  a:{zones:['quads','glutes','hamstrings','core','chest','back'],label:'Strength A: squat, hinge, push, core'},
+  b:{zones:['back','shoulders','arms','chest','core','glutes'],label:'Strength B: upper pull/push + accessories'}
+};
+let activeZones=[];
+
+window.setProgram=function(p,btn){
+  document.querySelectorAll('.hud-btn').forEach(b=>b.classList.remove('sel'));
+  if(btn)btn.classList.add('sel');
+  document.getElementById('prog-label').textContent=programs[p].label;
+  activeZones=programs[p].zones;
+  
+  // Reset all zones to base material
+  Object.entries(zones).forEach(([name,meshes])=>{
+    const arr=Array.isArray(meshes)?meshes:[meshes];
+    const isActive=activeZones.includes(name);
+    arr.forEach(m=>{
+      m.material=isActive?activeHoloMat():holoMat(0x38e0ff,0.1);
+    });
+  });
+  
+  // Update zone info panel
+  const info=document.getElementById('zone-info');
+  const allZones=['shoulders','chest','back','arms','core','glutes','quads','hamstrings','calves'];
+  info.innerHTML=allZones.map(z=>{
+    const active=activeZones.includes(z);
+    return '<div class="'+(active?'active':'')+'">'+z.toUpperCase()+(active?' ●':'')+'</div>';
+  }).join('');
+};
+
+window.setProgram('b',document.querySelector('.hud-btn.sel'));
+
+// Animate
+const clock=new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  const t=clock.elapsedTime;
+  bodyGroup.rotation.y=Math.sin(t*0.15)*0.3;
+  ring.rotation.z=t*0.1;
+  ring2.rotation.z=-t*0.15;
+  controls.update();
+  composer.render();
+}
+animate();
+
+window.addEventListener('resize',()=>{
+  const w=innerWidth,h=innerHeight;
+  camera.aspect=w/h;camera.updateProjectionMatrix();
+  renderer.setSize(w,h);composer.setSize(w,h);
+});
+</script>
+</body>
+</html>

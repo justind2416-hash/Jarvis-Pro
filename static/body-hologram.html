@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JARVIS Body Hologram</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#070605;display:flex;justify-content:center;padding:20px;min-height:100vh}
+.bh{max-width:500px;width:100%;padding:24px;font-family:-apple-system,sans-serif}
+.bh-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.bh-title{font-size:12px;letter-spacing:4px;color:#38e0ff;text-transform:uppercase}
+.bh-weight{font-size:13px;color:#eafff9}
+.bh-weight span{font-size:24px;font-weight:500}
+.bh-wrap{display:flex;justify-content:center;position:relative}
+.bh-stats{position:absolute;right:0;top:40px;display:flex;flex-direction:column;gap:10px}
+.bh-stat{text-align:right;font-size:11px;color:#4e837b}
+.bh-stat b{display:block;font-size:14px;color:#eafff9;font-weight:400}
+.bh-legend{display:flex;gap:16px;justify-content:center;margin-top:20px}
+.bh-leg{display:flex;align-items:center;gap:6px;font-size:12px;color:#79b3aa}
+.bh-dot{width:10px;height:10px;border-radius:50%}
+.bh-program{text-align:center;margin-top:12px;font-size:12px;color:#4e837b;letter-spacing:1px}
+svg .body-outline{fill:none;stroke:#1a3a3a;stroke-width:1.2}
+svg .muscle-zone{fill:rgba(56,224,255,0.03);stroke:rgba(56,224,255,0.08);stroke-width:0.8;cursor:pointer;transition:all 0.3s}
+svg .muscle-zone:hover{fill:rgba(56,224,255,0.08);stroke:rgba(56,224,255,0.2)}
+svg .muscle-zone.active{fill:rgba(220,60,40,0.15);stroke:rgba(255,90,60,0.6);filter:url(#glow-red)}
+svg .zone-label{font-size:7px;fill:#4e837b;text-anchor:middle;pointer-events:none;font-family:-apple-system,sans-serif}
+svg .zone-label.active{fill:#ff6a5a;font-weight:bold}
+.bh-btns{display:flex;gap:8px;justify-content:center;margin-top:16px}
+.bh-btn{padding:6px 16px;border-radius:14px;border:1px solid rgba(56,224,255,0.2);background:transparent;color:#38e0ff;font-size:12px;cursor:pointer;font-family:-apple-system,sans-serif}
+.bh-btn:hover{background:rgba(56,224,255,0.06)}
+.bh-btn.sel{background:rgba(56,224,255,0.1);border-color:rgba(56,224,255,0.4)}
+</style>
+</head>
+<body>
+<div class="bh">
+<div class="bh-header">
+<div class="bh-title">Body profile</div>
+<div class="bh-weight"><span>200</span> lb <span style="font-size:14px;color:#4e837b">5'9"</span></div>
+</div>
+<div class="bh-wrap">
+<svg viewBox="0 0 200 440" width="220" height="480">
+<defs><filter id="glow-red"><feGaussianBlur stdDeviation="4" result="b"/><feFlood flood-color="#ff4030" flood-opacity="0.35"/><feComposite in2="b" operator="in"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<ellipse cx="100" cy="30" rx="18" ry="22" class="body-outline"/>
+<path d="M82 62 Q100 56 118 62 L122 80 Q128 90 135 100 L140 130 Q142 140 138 145 L130 148 Q126 140 120 132 L115 120 L108 180 L112 250 L116 320 L118 380 Q118 395 112 400 L108 405 Q104 408 100 408 Q96 408 92 405 L88 400 Q82 395 82 380 L84 320 L88 250 L92 180 L85 120 L80 132 Q74 140 70 148 L62 145 Q58 140 60 130 L65 100 Q72 90 78 80 Z" class="body-outline"/>
+<ellipse cx="100" cy="85" rx="16" ry="12" class="muscle-zone" data-zone="chest"/>
+<text x="100" y="88" class="zone-label">chest</text>
+<ellipse cx="72" cy="72" rx="10" ry="8" class="muscle-zone" data-zone="shoulders"/>
+<ellipse cx="128" cy="72" rx="10" ry="8" class="muscle-zone" data-zone="shoulders"/>
+<text x="72" y="63" class="zone-label">delts</text>
+<text x="128" y="63" class="zone-label">delts</text>
+<rect x="56" y="100" width="12" height="35" rx="6" class="muscle-zone" data-zone="arms"/>
+<rect x="132" y="100" width="12" height="35" rx="6" class="muscle-zone" data-zone="arms"/>
+<text x="62" y="122" class="zone-label">arms</text>
+<text x="138" y="122" class="zone-label">arms</text>
+<ellipse cx="100" cy="140" rx="13" ry="18" class="muscle-zone" data-zone="core"/>
+<text x="100" y="143" class="zone-label">core</text>
+<path d="M88 70 Q100 65 112 70 L112 110 Q100 115 88 110 Z" class="muscle-zone" data-zone="back" opacity="0.5"/>
+<text x="100" y="95" style="font-size:5px" class="zone-label">back</text>
+<ellipse cx="100" cy="185" rx="14" ry="10" class="muscle-zone" data-zone="glutes"/>
+<text x="100" y="188" class="zone-label">glutes</text>
+<rect x="86" y="210" width="12" height="50" rx="6" class="muscle-zone" data-zone="quads"/>
+<rect x="102" y="210" width="12" height="50" rx="6" class="muscle-zone" data-zone="quads"/>
+<text x="92" y="240" class="zone-label">quads</text>
+<rect x="86" y="270" width="12" height="40" rx="6" class="muscle-zone" data-zone="hamstrings"/>
+<rect x="102" y="270" width="12" height="40" rx="6" class="muscle-zone" data-zone="hamstrings"/>
+<text x="108" y="295" class="zone-label">hams</text>
+<rect x="86" y="320" width="10" height="35" rx="5" class="muscle-zone" data-zone="calves"/>
+<rect x="104" y="320" width="10" height="35" rx="5" class="muscle-zone" data-zone="calves"/>
+<text x="97" y="340" class="zone-label">calves</text>
+</svg>
+<div class="bh-stats">
+<div class="bh-stat"><b>96</b>days to 40</div>
+<div class="bh-stat"><b>13</b>weeks left</div>
+<div class="bh-stat"><b>3</b>sessions</div>
+<div class="bh-stat"><b>54</b>total sets</div>
+</div>
+</div>
+<div class="bh-legend">
+<div class="bh-leg"><div class="bh-dot" style="background:#ff4030"></div>Today's targets</div>
+<div class="bh-leg"><div class="bh-dot" style="background:rgba(56,224,255,0.3)"></div>Other zones</div>
+</div>
+<div class="bh-btns">
+<button class="bh-btn sel" onclick="setProgram('b',this)">Strength B</button>
+<button class="bh-btn" onclick="setProgram('a',this)">Strength A</button>
+</div>
+<div class="bh-program" id="bh-prog">Strength B: upper pull/push + accessories</div>
+</div>
+<script>
+const programs={
+a:{zones:['quads','glutes','hamstrings','core','chest','back'],label:'Strength A: squat, hinge, push, core'},
+b:{zones:['back','shoulders','arms','chest','core','glutes'],label:'Strength B: upper pull/push + accessories'}
+};
+function setProgram(p,btn){
+document.querySelectorAll('.muscle-zone').forEach(z=>z.classList.remove('active'));
+document.querySelectorAll('.zone-label').forEach(l=>l.classList.remove('active'));
+document.querySelectorAll('.bh-btn').forEach(b=>b.classList.remove('sel'));
+if(btn)btn.classList.add('sel');
+const prog=programs[p];
+document.getElementById('bh-prog').textContent=prog.label;
+prog.zones.forEach(zone=>{
+document.querySelectorAll('[data-zone="'+zone+'"]').forEach(el=>el.classList.add('active'));
+document.querySelectorAll('.zone-label').forEach(l=>{
+const t=l.textContent.toLowerCase();
+if(t.includes(zone.substring(0,4))||(zone==='back'&&t==='back')||(zone==='chest'&&t==='chest')||(zone==='core'&&t==='core'))l.classList.add('active');
+});
+});
+}
+setProgram('b',document.querySelector('.bh-btn.sel'));
+</script>
+</body>
+</html>

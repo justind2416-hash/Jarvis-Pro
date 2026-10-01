@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#04060A">
+<title>JARVIS Pro — Setup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #04060A;
+  --bg-2: #070B12;
+  --panel: rgba(8, 16, 24, 0.78);
+  --panel-solid: #08111A;
+  --line: rgba(56, 224, 255, 0.14);
+  --cyan: #38e0ff;
+  --cyan-dim: rgba(56, 224, 255, 0.55);
+  --teal: #38ffc0;
+  --orange: #ffa04a;
+  --red: #ff5a6a;
+  --text: #e6fbff;
+  --text-2: #9dc3cc;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'JetBrains Mono', monospace;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.container {
+  max-width: 480px;
+  width: 100%;
+}
+.logo {
+  text-align: center;
+  margin-bottom: 32px;
+}
+.logo h1 {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 6px;
+  background: linear-gradient(135deg, var(--cyan), var(--teal));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.logo .sub {
+  font-size: 11px;
+  color: var(--text-2);
+  letter-spacing: 4px;
+  margin-top: 4px;
+}
+.progress {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 24px;
+  justify-content: center;
+}
+.progress .dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--line);
+  transition: all 0.3s;
+}
+.progress .dot.active { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+.progress .dot.done { background: var(--teal); }
+
+.step {
+  display: none;
+  animation: fadeIn 0.3s ease;
+}
+.step.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.step h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--cyan);
+}
+.step p {
+  font-size: 13px;
+  color: var(--text-2);
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-2);
+  margin-bottom: 6px;
+  letter-spacing: 1px;
+}
+input[type="text"], input[type="number"], input[type="date"], textarea, select {
+  width: 100%;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: var(--cyan);
+}
+textarea { resize: vertical; min-height: 80px; }
+
+.checkbox-group, .radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  font-size: 12px;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+}
+.chip:hover { border-color: var(--cyan-dim); }
+.chip.selected {
+  border-color: var(--cyan);
+  background: rgba(56, 224, 255, 0.1);
+  color: var(--cyan);
+}
+.chip input { display: none; }
+
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.slider-row input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none;
+  background: var(--line);
+  height: 4px;
+  border-radius: 2px;
+  outline: none;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+.slider-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--cyan);
+  cursor: pointer;
+}
+.slider-val {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--cyan);
+  min-width: 30px;
+  text-align: center;
+}
+
+.weight-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+.weight-row input[type="number"] { flex: 1; }
+.weight-row select { width: 70px; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 28px;
+  border-radius: 8px;
+  border: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--cyan), var(--teal));
+  color: var(--bg);
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(56, 224, 255, 0.3); }
+.btn-secondary {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--text-2);
+}
+.btn-secondary:hover { border-color: var(--cyan-dim); color: var(--text); }
+
+.btn-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  justify-content: space-between;
+}
+.btn-row .btn { flex: 1; }
+
+.summary-card {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.summary-card .label {
+  font-size: 10px;
+  color: var(--text-2);
+  letter-spacing: 2px;
+  margin-bottom: 4px;
+}
+.summary-card .value {
+  font-size: 14px;
+  color: var(--text);
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="logo">
+    <h1>J.A.R.V.I.S.</h1>
+    <div class="sub">PRO // SETUP</div>
+  </div>
+
+  <div class="progress" id="progress"></div>
+
+  <!-- STEP 0: Welcome -->
+  <div class="step active" data-step="0">
+    <h2>Welcome to JARVIS Pro</h2>
+    <p>Your AI-powered workout dashboard. Let's set up your training profile so your coach knows how to help you.</p>
+    <p style="font-size:11px;">This takes about 2 minutes.</p>
+    <div class="btn-row" style="justify-content:center;">
+      <button class="btn btn-primary" onclick="nextStep()">GET STARTED →</button>
+    </div>
+  </div>
+
+  <!-- STEP 1: Basic Info -->
+  <div class="step" data-step="1">
+    <h2>Basic Info</h2>
+    <p>Tell us about yourself.</p>
+    <label>NAME</label>
+    <input type="text" id="f-name" placeholder="Your name" required>
+    <label>AGE</label>
+    <input type="number" id="f-age" placeholder="Age" min="13" max="100">
+    <label>BIRTHDAY</label>
+    <input type="date" id="f-dob">
+    <label>HEIGHT</label>
+    <input type="text" id="f-height" placeholder='e.g. 5\'9" or 175 cm'>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="prevStep()">← BACK</button>
+      <button class="btn btn-primary" onclick="nextStep()">NEXT →</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: Body Composition -->
+  <div class="step" data-step="2">
+    <h2>Body Composition</h2>
+    <p>Where are you now, and where do you want to be?</p>
+    <label>CURRENT WEIGHT</label>
+    <div class="weight-row">
+      <input type="number" id="f-weight" placeholder="Weight" step="0.1">
+      <select id="f-weight-unit"><option value="lb">lb</option><option value="kg">kg</option></select>
+    </div>
+    <label>TARGET WEIGHT (optional)</label>
+    <div class="weight-row">
+      <input type="number" id="f-target-weight" placeholder="Target" step="0.1">
+      <select id="f-target-unit"><option value="lb">lb</option><option value="kg">kg</option></select>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="prevStep()">← BACK</button>
+      <button class="btn btn-primary" onclick="nextStep()">NEXT →</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: Goals -->
+  <div class="step" data-step="3">
+    <h2>Training Goals</h2>
+    <p>Select all that apply.</p>
+    <div class="checkbox-group" id="goals-group">
+      <label class="chip" onclick="toggleChip(this)"><input type="checkbox" value="lose_weight">Lose Weight</label>
+      <label class="chip" onclick="toggleChip(this)"><input type="checkbox" value="build_muscle">Build Muscle</label>
+      <label class="chip" onclick="toggleChip(this)"><input type="checkbox" value="improve_endurance">Improve Endurance</label>
+      <label class="chip" onclick="toggleChip(this)"><input type="checkbox" value="rehab_recovery">Rehab / Recovery</label>
+      <label class="chip" onclick="toggleChip(this)"><input type="checkbox" value="general_fitness">General Fitness</label>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="prevStep()">← BACK</button>
+      <button class="btn btn-primary" onclick="nextStep()">NEXT →</button>
+    </div>
+  </div>
+
+  <!-- STEP 4: Experience & Equipment -->
+  <div class="step" data-step="4">
+    <h2>Experience & Equipment</h2>
+    <label>TRAINING EXPERIENCE</label>
+    <div class="radio-group" id="exp-group">
+      <label class="chip" onclick="selectRadio(this, 'exp-group')"><input type="radio" name="experience" value="beginner">Beginner</label>
+      <label class="chip" onclick="selectRadio(this, 'exp-group')"><input type="radio" name="experience" value="intermediate">Intermediate</label>
+      <label class="chip" onclick="selectRadio(this, 'exp-group')"><input type="radio" name="experience" value="advanced">Advanced</label>
+    </div>
+    <label>AVAILABLE EQUIPMENT</label>
+    <div class="checkbox-group" id="equip-group">
+      <label class="chip" onclick="toggleChip(this)"><input type="checkbox" value="bodyweight">Bodyweight Only</label>
+      <label class="chip" onclick="toggleChip(this)"><input type="checkbox" value="dumbbells">Dumbbells</label>
+      <label class="chip" onclick="toggleChip(this)"><input type="checkbox" value="full_gym">Full Gym</label>
+      <label class="chip" onclick="toggleChip(this)"><input type="checkbox" value="cable_machine">Cable Machine</label>
+      <label class="chip" onclick="toggleChip(this)"><input type="checkbox" value="home_gym">Home Gym</label>
+      <label class="chip" onclick="toggleChip(this)"><input type="checkbox" value="resistance_bands">Bands</label>
+      <label class="chip" onclick="toggleChip(this)"><input type="checkbox" value="pullup_bar">Pull-Up Bar</label>
+      <label class="chip" onclick="toggleChip(this)"><input type="checkbox" value="treadmill">Treadmill / Cardio</label>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="prevStep()">← BACK</button>
+      <button class="btn btn-primary" onclick="nextStep()">NEXT →</button>
+    </div>
+  </div>
+
+  <!-- STEP 5: Training Preferences -->
+  <div class="step" data-step="5">
+    <h2>Training Preferences</h2>
+    <label>TRAINING DAYS PER WEEK</label>
+    <div class="slider-row">
+      <input type="range" id="f-frequency" min="2" max="6" value="4" oninput="document.getElementById('freq-val').textContent=this.value">
+      <span class="slider-val" id="freq-val">4</span>
+    </div>
+    <label>PREFERRED SPLIT</label>
+    <div class="radio-group" id="split-group">
+      <label class="chip" onclick="selectRadio(this, 'split-group')"><input type="radio" name="split" value="push_pull_legs">Push / Pull / Legs</label>
+      <label class="chip" onclick="selectRadio(this, 'split-group')"><input type="radio" name="split" value="full_body">Full Body</label>
+      <label class="chip" onclick="selectRadio(this, 'split-group')"><input type="radio" name="split" value="upper_lower">Upper / Lower</label>
+      <label class="chip" onclick="selectRadio(this, 'split-group')"><input type="radio" name="split" value="calisthenics">Calisthenics</label>
+      <label class="chip" onclick="selectRadio(this, 'split-group')"><input type="radio" name="split" value="mixed">Mixed (let Claude decide)</label>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="prevStep()">← BACK</button>
+      <button class="btn btn-primary" onclick="nextStep()">NEXT →</button>
+    </div>
+  </div>
+
+  <!-- STEP 6: Injuries -->
+  <div class="step" data-step="6">
+    <h2>Injuries & Limitations</h2>
+    <p>Your coach (Claude) will factor these into every workout recommendation.</p>
+    <label>ANYTHING WE SHOULD KNOW?</label>
+    <textarea id="f-limitations" placeholder="e.g. Bad left knee, lower back tightness, recovering from shoulder surgery..."></textarea>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="prevStep()">← BACK</button>
+      <button class="btn btn-primary" onclick="nextStep()">REVIEW →</button>
+    </div>
+  </div>
+
+  <!-- STEP 7: Review -->
+  <div class="step" data-step="7">
+    <h2>Review Your Profile</h2>
+    <p>Everything look right?</p>
+    <div id="review-cards"></div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="prevStep()">← EDIT</button>
+      <button class="btn btn-primary" id="submit-btn" onclick="submitOnboarding()">START TRAINING →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const TOTAL_STEPS = 8;
+let currentStep = 0;
+
+function initProgress() {
+  const bar = document.getElementById('progress');
+  bar.innerHTML = '';
+  for (let i = 0; i < TOTAL_STEPS; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 0 ? ' active' : '');
+    bar.appendChild(d);
+  }
+}
+
+function updateProgress() {
+  const dots = document.querySelectorAll('.progress .dot');
+  dots.forEach((d, i) => {
+    d.className = 'dot' + (i < currentStep ? ' done' : i === currentStep ? ' active' : '');
+  });
+}
+
+function showStep(n) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  const target = document.querySelector(`.step[data-step="${n}"]`);
+  if (target) target.classList.add('active');
+  updateProgress();
+  if (n === 7) buildReview();
+}
+
+function nextStep() {
+  if (currentStep === 1 && !document.getElementById('f-name').value.trim()) {
+    document.getElementById('f-name').focus();
+    return;
+  }
+  if (currentStep < TOTAL_STEPS - 1) {
+    currentStep++;
+    showStep(currentStep);
+  }
+}
+
+function prevStep() {
+  if (currentStep > 0) {
+    currentStep--;
+    showStep(currentStep);
+  }
+}
+
+function toggleChip(el) {
+  el.classList.toggle('selected');
+  const cb = el.querySelector('input');
+  if (cb) cb.checked = el.classList.contains('selected');
+}
+
+function selectRadio(el, groupId) {
+  document.querySelectorAll(`#${groupId} .chip`).forEach(c => {
+    c.classList.remove('selected');
+    const r = c.querySelector('input');
+    if (r) r.checked = false;
+  });
+  el.classList.add('selected');
+  const r = el.querySelector('input');
+  if (r) r.checked = true;
+}
+
+function getCheckedValues(groupId) {
+  return [...document.querySelectorAll(`#${groupId} input:checked`)].map(i => i.value);
+}
+
+function getRadioValue(groupId) {
+  const checked = document.querySelector(`#${groupId} input:checked`);
+  return checked ? checked.value : '';
+}
+
+function gatherData() {
+  const weightLbs = parseFloat(document.getElementById('f-weight').value) || 0;
+  const weightUnit = document.getElementById('f-weight-unit').value;
+  const targetWeight = parseFloat(document.getElementById('f-target-weight').value) || 0;
+  const goals = getCheckedValues('goals-group');
+
+  return {
+    name: document.getElementById('f-name').value.trim(),
+    age: parseInt(document.getElementById('f-age').value) || 0,
+    dob: document.getElementById('f-dob').value || '',
+    height: document.getElementById('f-height').value.trim(),
+    weight_lbs: weightUnit === 'kg' ? Math.round(weightLbs * 2.205 * 10) / 10 : weightLbs,
+    target_weight_lbs: (document.getElementById('f-target-unit').value === 'kg')
+      ? Math.round(targetWeight * 2.205 * 10) / 10 : targetWeight,
+    goals: {
+      primary: goals.map(g => g.replace(/_/g, ' ')).join(', '),
+      selected: goals
+    },
+    experience: getRadioValue('exp-group'),
+    equipment: getCheckedValues('equip-group'),
+    training_frequency: parseInt(document.getElementById('f-frequency').value) || 4,
+    training_split: getRadioValue('split-group'),
+    limitations: document.getElementById('f-limitations').value.trim()
+  };
+}
+
+function buildReview() {
+  const d = gatherData();
+  const cards = document.getElementById('review-cards');
+  const items = [
+    ['NAME', d.name],
+    ['AGE', d.age || '—'],
+    ['HEIGHT', d.height || '—'],
+    ['WEIGHT', d.weight_lbs ? `${d.weight_lbs} lb` : '—'],
+    ['TARGET', d.target_weight_lbs ? `${d.target_weight_lbs} lb` : '—'],
+    ['GOALS', d.goals.selected.map(g => g.replace(/_/g, ' ')).join(', ') || '—'],
+    ['EXPERIENCE', d.experience || '—'],
+    ['EQUIPMENT', d.equipment.map(e => e.replace(/_/g, ' ')).join(', ') || '—'],
+    ['FREQUENCY', `${d.training_frequency} days/week`],
+    ['SPLIT', d.training_split ? d.training_split.replace(/_/g, ' ') : '—'],
+    ['LIMITATIONS', d.limitations || 'None noted'],
+  ];
+  cards.innerHTML = items.map(([l, v]) =>
+    `<div class="summary-card"><div class="label">${l}</div><div class="value">${v}</div></div>`
+  ).join('');
+}
+
+async function submitOnboarding() {
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'SETTING UP...';
+
+  try {
+    const data = gatherData();
+    const resp = await fetch('/api/onboard', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const result = await resp.json();
+    if (result.status === 'ok') {
+      window.location.href = '/coach';
+    } else {
+      alert('Setup failed: ' + (result.error || 'Unknown error'));
+      btn.disabled = false;
+      btn.textContent = 'START TRAINING →';
+    }
+  } catch (e) {
+    alert('Network error — please try again.');
+    btn.disabled = false;
+    btn.textContent = 'START TRAINING →';
+  }
+}
+
+initProgress();
+</script>
+</body>
+</html>

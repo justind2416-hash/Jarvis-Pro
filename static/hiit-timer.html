@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1A1917">
+<title>JARVIS HIIT Timer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Big+Shoulders+Text:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --go:#ffa04a; --go-deep:#2a1a08;
+  --stop:#38e0ff; --stop-deep:#0a1a2a; --stop-soft:#8ff5e6;
+  --stone:#4e837b; --stone-deep:#050403; --panel:rgba(5,12,16,0.95); --chalk:#eafff9; --muted:#4e837b; --line:rgba(56,224,255,0.15);
+  --r-lg:30px;
+  --display:"Big Shoulders Display","Avenir Next Condensed","Arial Narrow",Impact,system-ui,sans-serif;
+  --text:"Big Shoulders Text","Avenir Next Condensed","Arial Narrow",system-ui,sans-serif;
+  --safe:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));
+}
+*{box-sizing:border-box;margin:0}
+[hidden]{display:none!important}
+html,body{height:100%;background:var(--stone-deep);color:var(--chalk)}
+body{font-family:var(--text);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+:focus-visible{outline:3px solid currentColor;outline-offset:3px}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* ---------- Setup ---------- */
+.setup{min-height:100vh;min-height:100dvh;max-width:700px;margin:0 auto;display:flex;flex-direction:column;gap:10px;padding:var(--safe)}
+.band{display:flex;flex-direction:column;border-radius:var(--r-lg);padding:18px 20px 16px}
+.band-work{flex:1 1 0;min-height:160px;background:var(--go);color:#1a1a1a}
+.band-rest{flex:1 1 0;min-height:160px;background:var(--stop);color:#fff}
+.band-base{background:var(--panel);padding:20px 18px 14px}
+.band-label{font:800 30px/1 var(--display);letter-spacing:.01em}
+
+.stepper.big{flex:1;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px}
+.big .val{text-align:center;font-family:var(--display);font-weight:900;line-height:.85;font-variant-numeric:tabular-nums;
+  font-size:clamp(64px,min(26vw,15vh),200px);font-size:clamp(64px,min(26vw,15dvh),200px)}
+.big .u{font:700 .22em/1 var(--text);margin-left:.12em;opacity:.7}
+
+.step{display:grid;place-items:center;border-radius:50%;background:transparent;border:3px solid currentColor;width:60px;height:60px;padding:0;transition:transform .12s}
+.big .step{background:rgba(0,0,0,.08)}
+.band-rest .step{background:rgba(255,255,255,.1)}
+.step svg{width:26px;height:26px}
+.step:active{transform:scale(.92)}
+.step:disabled{opacity:.28;cursor:default}
+
+.minis{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px 16px}
+.mini{transition:opacity .2s}
+.mini.dim{opacity:.4}
+.mini-label{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:600 15px/1.2 var(--text);color:var(--muted);margin-bottom:6px}
+.mini-row{display:flex;align-items:center;justify-content:space-between;gap:4px}
+.mini .v{min-width:0;text-align:center;font:800 clamp(20px,6.6vw,28px)/1 var(--display);font-variant-numeric:tabular-nums}
+.mini .step{flex:none;width:42px;height:42px;border-width:2px;border-color:var(--line)}
+.mini .step svg{width:18px;height:18px}
+
+.presets{display:flex;gap:8px;overflow-x:auto;margin-top:22px;padding:3px 3px 3px 0;scrollbar-width:none}
+.presets::-webkit-scrollbar{display:none}
+.chip{flex:none;border:2px solid var(--line);background:transparent;border-radius:999px;padding:9px 14px;font:700 16px/1 var(--text);white-space:nowrap}
+.chip small{font-size:.85em;color:var(--muted);margin-left:4px}
+.chip[aria-pressed="true"]{background:var(--chalk);color:#000;border-color:var(--chalk)}
+.chip[aria-pressed="true"] small{color:#555}
+
+.start{margin-top:18px;display:flex;align-items:center;justify-content:space-between;width:100%;height:72px;border:0;border-radius:36px;padding:0 28px;background:var(--go);color:#1a1a1a;font:900 32px/1 var(--display);transition:transform .12s}
+.start:active{transform:scale(.98)}
+.start:focus-visible{outline-color:var(--chalk)}
+.start-total{font:700 20px/1 var(--text);opacity:.7;font-variant-numeric:tabular-nums}
+.test{display:block;margin:12px auto 0;background:none;border:0;border-radius:12px;padding:8px 12px;color:var(--muted);font:700 16px/1 var(--text);text-decoration:underline;text-underline-offset:3px}
+
+/* ---------- Run ---------- */
+.run{position:fixed;inset:0;background:var(--stone-deep);padding:var(--safe);
+  --bg:var(--stone);--fg:var(--chalk);--bg-deep:var(--stone-deep);--fg-deep:var(--muted)}
+.run[data-phase="work"],.run[data-phase="done"]{--bg:var(--go);--fg:#000;--bg-deep:var(--go-deep);--fg-deep:var(--go)}
+.run[data-phase="rest"],.run[data-phase="setrest"]{--bg:var(--stop);--fg:#fff;--bg-deep:var(--stop-deep);--fg-deep:var(--stop-soft)}
+.run[data-phase="prep"]{--bg-deep:#2A2926}
+.stage{position:relative;height:100%;border-radius:var(--r-lg);overflow:hidden;-webkit-clip-path:inset(0 round var(--r-lg));clip-path:inset(0 round var(--r-lg))}
+
+.layer{position:absolute;inset:0;display:flex;flex-direction:column;padding:20px 22px 112px}
+.low{background:var(--bg-deep);color:var(--fg-deep)}
+.high{background:var(--bg);color:var(--fg);will-change:clip-path}
+
+.hud{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;font:700 19px/1.2 var(--text);font-variant-numeric:tabular-nums}
+.hud-sub{font-weight:600;font-size:16px;opacity:.75}
+.hud-r{text-align:right}
+.center{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;transition:opacity .2s}
+.run.paused .center{opacity:.55}
+.num{font-family:var(--display);font-weight:900;line-height:.8;letter-spacing:-.01em;font-variant-numeric:tabular-nums;
+  font-size:min(60vw,50vh);font-size:min(60vw,50dvh)}
+.num.long{font-size:min(42vw,40vh);font-size:min(42vw,40dvh)}
+.num.xlong{font-size:min(32vw,34vh);font-size:min(32vw,34dvh)}
+.phase{font-family:var(--display);font-weight:800;line-height:1;margin-top:.3em;font-size:clamp(30px,min(9vw,9vh),72px)}
+.next{font:600 clamp(16px,4.4vw,22px)/1.3 var(--text);margin-top:10px;min-height:1.3em;opacity:.85}
+
+.controls{position:absolute;left:0;right:0;bottom:0;z-index:2;display:flex;justify-content:center;align-items:center;gap:12px;padding:14px 14px 20px}
+.ctl{display:grid;place-items:center;width:56px;height:56px;padding:0;border-radius:50%;border:0;background:rgba(0,0,0,.72);color:#fff;
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);transition:transform .12s}
+.ctl svg{width:22px;height:22px}
+.ctl.primary{width:auto;min-width:150px;height:68px;border-radius:34px;padding:0 28px;font:800 26px/1 var(--display)}
+.ctl.armed{width:auto;padding:0 18px;border-radius:28px;background:#000;font:800 20px/1 var(--display)}
+.ctl:active{transform:scale(.94)}
+.ctl:focus-visible{outline:3px solid #fff;outline-offset:2px;box-shadow:0 0 0 7px #000}
+
+.toast{position:fixed;left:50%;top:max(20px,env(safe-area-inset-top));z-index:10;width:max-content;max-width:min(90vw,420px);
+  transform:translate(-50%,-8px);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;
+  background:var(--chalk);color:#000;border-radius:18px;padding:12px 18px;font:700 16px/1.3 var(--text);text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+@media (prefers-reduced-motion:reduce){
+  .step,.start,.ctl,.center,.mini,.toast{transition:none}
+  .step:active,.start:active,.ctl:active{transform:none}
+}
+</style>
+</head>
+<body>
+<h1 class="sr-only">HIIT timer</h1>
+
+<div id="setup" class="setup">
+  <section class="band band-work">
+    <h2 class="band-label" id="lblWork">Work</h2>
+    <div class="stepper big" data-key="work" role="group" aria-labelledby="lblWork">
+      <button class="step" data-dir="-1" aria-label="Shorter work interval"></button>
+      <div class="val"><span class="v" aria-live="polite">20</span><span class="u">sec</span></div>
+      <button class="step" data-dir="1" aria-label="Longer work interval"></button>
+    </div>
+  </section>
+
+  <section class="band band-rest">
+    <h2 class="band-label" id="lblRest">Rest</h2>
+    <div class="stepper big" data-key="rest" role="group" aria-labelledby="lblRest">
+      <button class="step" data-dir="-1" aria-label="Shorter rest interval"></button>
+      <div class="val"><span class="v" aria-live="polite">10</span><span class="u">sec</span></div>
+      <button class="step" data-dir="1" aria-label="Longer rest interval"></button>
+    </div>
+  </section>
+
+  <section class="band band-base">
+    <div class="minis">
+      <div class="mini" data-key="rounds" role="group" aria-labelledby="lblRounds">
+        <span class="mini-label" id="lblRounds">Rounds</span>
+        <div class="mini-row"><button class="step" data-dir="-1" aria-label="Fewer rounds"></button><span class="v" aria-live="polite">8</span><button class="step" data-dir="1" aria-label="More rounds"></button></div>
+      </div>
+      <div class="mini" data-key="sets" role="group" aria-labelledby="lblSets">
+        <span class="mini-label" id="lblSets">Sets</span>
+        <div class="mini-row"><button class="step" data-dir="-1" aria-label="Fewer sets"></button><span class="v" aria-live="polite">1</span><button class="step" data-dir="1" aria-label="More sets"></button></div>
+      </div>
+      <div class="mini" data-key="prep" role="group" aria-labelledby="lblPrep">
+        <span class="mini-label" id="lblPrep">Get ready</span>
+        <div class="mini-row"><button class="step" data-dir="-1" aria-label="Shorter get-ready countdown"></button><span class="v" aria-live="polite">10s</span><button class="step" data-dir="1" aria-label="Longer get-ready countdown"></button></div>
+      </div>
+      <div class="mini" data-key="setRest" role="group" aria-labelledby="lblSetRest">
+        <span class="mini-label" id="lblSetRest">Set break</span>
+        <div class="mini-row"><button class="step" data-dir="-1" aria-label="Shorter set break"></button><span class="v" aria-live="polite">1:00</span><button class="step" data-dir="1" aria-label="Longer set break"></button></div>
+      </div>
+    </div>
+
+    <div class="presets" role="group" aria-label="Presets">
+      <button class="chip" data-p="20,10,8">Tabata 20/10<small>×8</small></button>
+      <button class="chip" data-p="30,30,10">30/30<small>×10</small></button>
+      <button class="chip" data-p="40,20,8">40/20<small>×8</small></button>
+      <button class="chip" data-p="45,15,6">45/15<small>×6</small></button>
+    </div>
+
+    <button id="start" class="start"><span>Start</span><span class="start-total" id="startTotal">4:10</span></button>
+    <button id="testSound" class="test">Test sound</button>
+  </section>
+</div>
+
+<main id="run" class="run" data-phase="prep" hidden>
+  <div class="stage">
+    <div class="layer low" aria-hidden="true"></div>
+    <div class="layer high" aria-hidden="true"></div>
+  <div class="sr-only" aria-live="assertive" id="announce"></div>
+  <div class="controls">
+    <button class="ctl" id="endBtn" aria-label="End workout"></button>
+    <button class="ctl primary" id="pauseBtn">Pause</button>
+    <button class="ctl" id="skipBtn" aria-label="Skip to next interval"></button>
+    <button class="ctl" id="muteBtn" aria-label="Mute beeps" aria-pressed="false"></button>
+  </div>
+  </div>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const ICON = {
+    minus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>',
+    plus:  '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>',
+    stop:  '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/></svg>',
+    skip:  '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l9 7-9 7z" fill="currentColor"/><rect x="16" y="5" width="3" height="14" rx="1" fill="currentColor"/></svg>',
+    sound: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 010 7M18 6a8.5 8.5 0 010 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+    muted: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" fill="currentColor"/><path d="M15.5 9.5l5 5m0-5l-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'
+  };
+
+  /* ---------- Settings ---------- */
+  const cfg = { prep: 10, work: 20, rest: 10, rounds: 8, sets: 1, setRest: 60 };
+  const limits = { prep: [0, 60, 5], work: [5, 600, 5], rest: [0, 600, 5], rounds: [1, 50, 1], sets: [1, 10, 1], setRest: [0, 300, 15] };
+  const TIME = new Set(['prep', 'work', 'rest', 'setRest']);
+  const NAMES = { prep: 'Get ready', work: 'Work', rest: 'Rest', setrest: 'Set break' };
+
+  const clock = s => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  const short = s => (s < 60 ? s + 's' : clock(s));
+  const spoken = t => {
+    const m = Math.floor(t / 60), s = t % 60;
+    return [m ? `${m} minute${m > 1 ? 's' : ''}` : '', s ? `${s} second${s > 1 ? 's' : ''}` : ''].filter(Boolean).join(' ') || '0 seconds';
+  };
+
+  function buildSeq() {
+    const seq = [];
+    if (cfg.prep > 0) seq.push({ type: 'prep', dur: cfg.prep });
+    for (let set = 1; set <= cfg.sets; set++) {
+      for (let r = 1; r <= cfg.rounds; r++) {
+        seq.push({ type: 'work', dur: cfg.work, round: r, set });
+        if (r < cfg.rounds && cfg.rest > 0) seq.push({ type: 'rest', dur: cfg.rest, round: r, set });
+      }
+      if (set < cfg.sets && cfg.setRest > 0) seq.push({ type: 'setrest', dur: cfg.setRest, set });
+    }
+    return seq;
+  }
+
+  const setupEl = $('#setup'), runEl = $('#run');
+  $$('[data-key] .step').forEach(b => { b.innerHTML = +b.dataset.dir > 0 ? ICON.plus : ICON.minus; });
+
+  function stepFor(key, dir) {
+    if ((key === 'work' || key === 'rest') && (dir > 0 ? cfg[key] >= 120 : cfg[key] > 120)) return 15;
+    return limits[key][2];
+  }
+  function change(key, dir) {
+    const [min, max] = limits[key];
+    const v = Math.min(max, Math.max(min, cfg[key] + dir * stepFor(key, dir)));
+    if (v === cfg[key]) return false;
+    cfg[key] = v; renderSetup(); save();
+    return true;
+  }
+
+  function renderSetup() {
+    $$('[data-key]').forEach(el => {
+      const k = el.dataset.key, v = cfg[k], [min, max] = limits[k];
+      const vEl = $('.v', el), uEl = $('.u', el);
+      if (uEl) { vEl.textContent = v < 60 ? v : clock(v); uEl.hidden = v >= 60; }
+      else vEl.textContent = TIME.has(k) ? (v === 0 ? 'Off' : short(v)) : v;
+      $('.step[data-dir="-1"]', el).disabled = v <= min;
+      $('.step[data-dir="1"]', el).disabled = v >= max;
+    });
+    $('[data-key="setRest"]').classList.toggle('dim', cfg.sets === 1);
+    $$('.chip').forEach(c => {
+      const [w, r, n] = c.dataset.p.split(',').map(Number);
+      c.setAttribute('aria-pressed', String(cfg.work === w && cfg.rest === r && cfg.rounds === n));
+    });
+    const total = buildSeq().reduce((a, s) => a + s.dur, 0);
+    $('#startTotal').textContent = clock(total);
+    $('#start').setAttribute('aria-label', `Start workout, ${spoken(total)} total`);
+  }
+
+  // Steppers: tap to change, hold to repeat. Keyboard clicks (detail 0) handled separately.
+  $$('[data-key] .step').forEach(btn => {
+    const key = btn.closest('[data-key]').dataset.key, dir = +btn.dataset.dir;
+    let hold = 0, rep = 0;
+    const stop = () => { clearTimeout(hold); clearInterval(rep); };
+    btn.addEventListener('pointerdown', e => {
+      if (e.button !== 0) return;
+      change(key, dir); stop();
+      hold = setTimeout(() => { rep = setInterval(() => { if (!change(key, dir)) stop(); }, 85); }, 420);
+    });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(t => btn.addEventListener(t, stop));
+    btn.addEventListener('click', e => { if (e.detail === 0) change(key, dir); });
+    btn.addEventListener('contextmenu', e => e.preventDefault());
+  });
+
+  $$('.chip').forEach(c => c.addEventListener('click', () => {
+    const [w, r, n] = c.dataset.p.split(',').map(Number);
+    cfg.work = w; cfg.rest = r; cfg.rounds = n;
+    renderSetup(); save();
+  }));
+
+  // Persist settings between sessions
+  const KEY = 'hiit-timer-settings';
+  let saveT = 0;
+  function save() {
+    clearTimeout(saveT);
+    saveT = setTimeout(async () => { try { localStorage.setItem(KEY, JSON.stringify(cfg)); } catch (e) {} }, 400);
+  }
+  async function load() {
+    try {
+      const r = {value: localStorage.getItem(KEY)};
+      if (r && r.value) {
+        const d = JSON.parse(r.value);
+        for (const k in limits) {
+          const v = Number(d[k]);
+          if (Number.isFinite(v)) { const [min, max] = limits[k]; cfg[k] = Math.min(max, Math.max(min, Math.round(v))); }
+        }
+      }
+    } catch (e) {}
+    renderSetup();
+  }
+
+  /* ---------- Audio, vibration, wake lock ---------- */
+  let muted = false, wakeLock = null;
+
+  // Beeps are rendered once into small WAV files and played through <audio>
+  // elements. On iPhone that routes them as media (not ringer) audio.
+  const SR = 22050;
+  function makeWav(notes) {
+    const segs = notes.map(n => ({ f: n.f, N: Math.floor(n.d * SR), G: Math.floor((n.gap || 0) * SR) }));
+    const len = segs.reduce((a, x) => a + x.N + x.G, 0) + Math.floor(0.03 * SR);
+    const buf = new ArrayBuffer(44 + len * 2), v = new DataView(buf);
+    const w = (o, str) => { for (let i = 0; i < str.length; i++) v.setUint8(o + i, str.charCodeAt(i)); };
+    w(0, 'RIFF'); v.setUint32(4, 36 + len * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, SR, true); v.setUint32(28, SR * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    w(36, 'data'); v.setUint32(40, len * 2, true);
+    let p = 44;
+    for (const x of segs) {
+      const k = 2 * Math.PI * x.f / SR, att = 0.004 * SR, rel = 0.04 * SR;
+      for (let i = 0; i < x.N; i++) {
+        const env = Math.min(1, i / att, (x.N - i) / rel);
+        const y = (Math.sin(k * i) + Math.sin(3 * k * i) / 3 + Math.sin(5 * k * i) / 5) * 0.8 * env;
+        v.setInt16(p, Math.max(-1, Math.min(1, y)) * 32767, true); p += 2;
+      }
+      p += x.G * 2;
+    }
+    return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+  }
+  const SOUNDS = {
+    start: [{ f: 880, d: 0.09 }],
+    tick:  [{ f: 784, d: 0.12 }],
+    go:    [{ f: 1175, d: 0.42 }],
+    rest:  [{ f: 523, d: 0.5 }],
+    done:  [{ f: 784, d: 0.14, gap: 0.03 }, { f: 988, d: 0.14, gap: 0.03 }, { f: 1319, d: 0.55 }],
+    test:  [{ f: 784, d: 0.12, gap: 0.2 }, { f: 784, d: 0.12, gap: 0.2 }, { f: 1175, d: 0.42 }]
+  };
+  const pool = {};
+  for (const k in SOUNDS) {
+    const el = new Audio(); el.preload = 'auto'; el.setAttribute('playsinline', ''); el.src = makeWav(SOUNDS[k]); pool[k] = el;
+  }
+
+  // Phones only allow audio that starts from a tap, so every sound gets a
+  // silent start/stop during the Start tap. After that they can play on cue.
+  let unlocked = false, warnedBlocked = false;
+  function unlockAudio(except) {
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+    if (unlocked) return;
+    unlocked = true;
+    for (const k in pool) {
+      if (k === except) continue;
+      const el = pool[k];
+      el._unlocking = true; el.muted = true;
+      try {
+        const pr = el.play();
+        const fin = () => { if (el._unlocking) { el.pause(); el.currentTime = 0; el.muted = false; el._unlocking = false; } };
+        if (pr) pr.then(fin, () => { el.muted = false; el._unlocking = false; }); else fin();
+      } catch (e) { el.muted = false; el._unlocking = false; }
+    }
+  }
+  function play(name, force) {
+    if (muted && !force) return Promise.resolve();
+    const el = pool[name];
+    el._unlocking = false; el.muted = false;
+    try { el.currentTime = 0; } catch (e) {}
+    let pr;
+    try { pr = el.play(); } catch (e) { pr = Promise.reject(e); }
+    return (pr || Promise.resolve()).catch(err => {
+      if (!warnedBlocked) { warnedBlocked = true; toast('Sound is blocked in this viewer. Open the file in Safari or Chrome to hear beeps.', 6000); }
+      throw err;
+    });
+  }
+
+  let toastT = 0;
+  function toast(msg, ms = 3500) {
+    const t = $('#toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms);
+  }
+
+  function buzz(p) { if (muted) return; try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} }
+  async function lockScreen() {
+    try {
+      if ('wakeLock' in navigator && !wakeLock) {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      }
+    } catch (e) { wakeLock = null; }
+  }
+  function releaseLock() { try { wakeLock && wakeLock.release(); } catch (e) {} wakeLock = null; }
+
+  /* ---------- Run screen ---------- */
+  const TPL = `
+    <header class="hud">
+      <div><div data-f="round"></div><div class="hud-sub" data-f="set"></div></div>
+      <div class="hud-r" data-f="left"></div>
+    </header>
+    <div class="center">
+      <div class="num" data-f="num"></div>
+      <div class="phase" data-f="phase"></div>
+      <div class="next" data-f="next"></div>
+    </div>`;
+  const low = $('.low', runEl), high = $('.high', runEl);
+  low.innerHTML = TPL; high.innerHTML = TPL;
+  const F = n => $$(`[data-f="${n}"]`, runEl);
+  const fields = { num: F('num'), phase: F('phase'), next: F('next'), round: F('round'), set: F('set'), left: F('left') };
+  const setField = (k, t) => fields[k].forEach(e => { if (e.textContent !== t) e.textContent = t; });
+  function setNum(t) {
+    fields.num.forEach(e => {
+      if (e.textContent === t) return;
+      e.textContent = t;
+      e.classList.toggle('long', t.length === 4);
+      e.classList.toggle('xlong', t.length >= 5);
+    });
+  }
+  const ease = t => 1 - Math.pow(1 - t, 3);
+  function setClip(f) {
+    const v = `inset(${(f * 100).toFixed(2)}% 0 0 0)`;
+    high.style.clipPath = v; high.style.webkitClipPath = v;
+  }
+  const liveEl = $('#announce');
+  const announce = t => { liveEl.textContent = t; };
+
+  const pauseBtn = $('#pauseBtn'), skipBtn = $('#skipBtn'), endBtn = $('#endBtn'), muteBtn = $('#muteBtn');
+  skipBtn.innerHTML = ICON.skip; endBtn.innerHTML = ICON.stop; muteBtn.innerHTML = ICON.sound;
+
+  let seq = [], suffix = [], idx = 0, accum = 0, runStart = 0, running = false, done = false;
+  let lastBeep = 0, enteredAt = 0, doneAt = 0, nextText = '', rafId = 0, intId = 0;
+
+  const elapsed = now => accum + (running ? now - runStart : 0);
+
+  function start() {
+    unlockAudio('start');
+    seq = buildSeq();
+    suffix = new Array(seq.length);
+    let acc = 0;
+    for (let i = seq.length - 1; i >= 0; i--) { suffix[i] = acc; acc += seq[i].dur; }
+    idx = 0; accum = 0; running = true; done = false; runStart = performance.now();
+    if (seq[0].type === 'prep') play('start').catch(() => {});
+    setupEl.hidden = true; runEl.hidden = false;
+    runEl.classList.remove('paused');
+    skipBtn.hidden = false; disarmEnd();
+    pauseBtn.textContent = 'Pause';
+    enterSegment();
+    cancelAnimationFrame(rafId); rafId = requestAnimationFrame(loop);
+    clearInterval(intId); intId = setInterval(tick, 250);
+    lockScreen();
+    pauseBtn.focus({ preventScroll: true });
+  }
+
+  function enterSegment() {
+    const s = seq[idx], nx = seq[idx + 1];
+    runEl.dataset.phase = s.type;
+    enteredAt = performance.now();
+    lastBeep = Math.ceil(s.dur);
+    setField('phase', NAMES[s.type]);
+    if (s.type === 'prep') {
+      setField('round', `${cfg.rounds} rounds`);
+      setField('set', cfg.sets > 1 ? `${cfg.sets} sets` : '');
+    } else if (s.type === 'setrest') {
+      setField('round', `Set ${s.set} of ${cfg.sets} done`);
+      setField('set', '');
+    } else {
+      setField('round', `Round ${s.round} of ${cfg.rounds}`);
+      setField('set', cfg.sets > 1 ? `Set ${s.set} of ${cfg.sets}` : '');
+    }
+    nextText = !nx ? 'Last round'
+      : nx.type === 'work' ? `Next: work ${short(nx.dur)}`
+      : nx.type === 'rest' ? `Next: rest ${short(nx.dur)}`
+      : `Next: set break ${short(nx.dur)}`;
+    setField('next', running ? nextText : 'Paused');
+    announce(`${NAMES[s.type]}, ${spoken(s.dur)}`);
+    if (s.type === 'work') { play('go').catch(() => {}); buzz([120]); }
+    else if (s.type !== 'prep') { play('rest').catch(() => {}); buzz([60, 60, 60]); }
+  }
+
+  function tick() {
+    if (runEl.hidden) return;
+    const now = performance.now();
+    if (done) {
+      const t = reduceMotion ? 1 : Math.min(1, (now - doneAt) / 360);
+      setClip(1 - ease(t));
+      return;
+    }
+    let e = elapsed(now);
+    while (e >= seq[idx].dur * 1000) {
+      const over = e - seq[idx].dur * 1000;
+      idx++;
+      if (idx >= seq.length) { finish(now); return; }
+      accum = over; runStart = now;
+      enterSegment();
+      e = elapsed(now);
+    }
+    const s = seq[idx], rem = s.dur - e / 1000, sec = Math.ceil(rem);
+    if (running && sec >= 1 && sec <= 3 && sec < lastBeep) { lastBeep = sec; play('tick').catch(() => {}); buzz([30]); }
+    setNum(sec >= 60 ? clock(sec) : String(sec));
+    setField('left', `${clock(sec + suffix[idx])} left`);
+    const frac = Math.min(1, e / (s.dur * 1000));
+    const rise = reduceMotion ? 1 : Math.min(1, (now - enteredAt) / 360);
+    setClip(Math.max(frac, 1 - ease(rise)));
+  }
+
+  function loop() {
+    tick();
+    if (runEl.hidden) return;
+    if (done && performance.now() - doneAt > 420) return;
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function finish(now) {
+    done = true; running = false; doneAt = now; idx = seq.length;
+    runEl.classList.remove('paused');
+    runEl.dataset.phase = 'done';
+    const total = suffix[0] + seq[0].dur;
+    setNum('Done');
+    setField('phase', 'Nice work');
+    setField('next', `${cfg.rounds * cfg.sets} rounds in ${clock(total)}`);
+    setField('round', ''); setField('set', ''); setField('left', '');
+    skipBtn.hidden = true; disarmEnd();
+    pauseBtn.textContent = 'Go again';
+    play('done').catch(() => {});
+    buzz([100, 80, 100, 80, 300]);
+    announce('Workout complete');
+    clearInterval(intId);
+    releaseLock();
+  }
+
+  function togglePause() {
+    if (done) return;
+    const now = performance.now();
+    if (running) { accum = elapsed(now); running = false; releaseLock(); }
+    else { unlockAudio(); runStart = now; running = true; lockScreen(); }
+    runEl.classList.toggle('paused', !running);
+    setField('next', running ? nextText : 'Paused');
+    pauseBtn.textContent = running ? 'Pause' : 'Resume';
+    announce(running ? 'Resumed' : 'Paused');
+  }
+
+  function skip() {
+    if (done) return;
+    const now = performance.now();
+    idx++;
+    if (idx >= seq.length) { finish(now); return; }
+    accum = 0; runStart = now;
+    enterSegment(); tick();
+  }
+
+  function end() {
+    running = false; done = false;
+    cancelAnimationFrame(rafId); clearInterval(intId);
+    releaseLock(); disarmEnd();
+    runEl.hidden = true; setupEl.hidden = false;
+    runEl.classList.remove('paused');
+    $('#start').focus({ preventScroll: true });
+  }
+
+  // Ending mid-workout takes two taps so a stray elbow doesn't kill the session.
+  let armT = 0;
+  function disarmEnd() {
+    clearTimeout(armT);
+    endBtn.classList.remove('armed');
+    endBtn.innerHTML = ICON.stop;
+    endBtn.setAttribute('aria-label', 'End workout');
+  }
+  endBtn.addEventListener('click', () => {
+    if (done || endBtn.classList.contains('armed')) { end(); return; }
+    endBtn.classList.add('armed');
+    endBtn.textContent = 'End?';
+    endBtn.setAttribute('aria-label', 'Tap again to end workout');
+    armT = setTimeout(disarmEnd, 2500);
+  });
+
+  pauseBtn.addEventListener('click', () => (done ? start() : togglePause()));
+  skipBtn.addEventListener('click', skip);
+  muteBtn.addEventListener('click', () => {
+    muted = !muted;
+    muteBtn.innerHTML = muted ? ICON.muted : ICON.sound;
+    muteBtn.setAttribute('aria-pressed', String(muted));
+    muteBtn.setAttribute('aria-label', muted ? 'Unmute beeps' : 'Mute beeps');
+  });
+  $('#start').addEventListener('click', start);
+  $('#testSound').addEventListener('click', () => {
+    unlockAudio('test');
+    play('test', true).then(
+      () => toast('Playing test beeps. Silent? Turn up your volume.'),
+      () => {}
+    );
+  });
+
+  document.addEventListener('keydown', e => {
+    if (runEl.hidden) return;
+    if (e.key === ' ' && !(e.target instanceof HTMLButtonElement)) { e.preventDefault(); done ? start() : togglePause(); }
+    else if (e.key === 'ArrowRight') skip();
+    else if (e.key === 'Escape') end();
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && !runEl.hidden && running) { lockScreen(); tick(); }
+  });
+
+  renderSetup();
+  load();
+})();
+</script>
+</body>
+</html>

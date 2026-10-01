@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#04060A">
+<title>JARVIS Pro — Connect Your Coach</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #04060A;
+  --bg-2: #070B12;
+  --panel: rgba(8, 16, 24, 0.78);
+  --line: rgba(56, 224, 255, 0.14);
+  --cyan: #38e0ff;
+  --cyan-dim: rgba(56, 224, 255, 0.55);
+  --teal: #38ffc0;
+  --orange: #ffa04a;
+  --text: #e6fbff;
+  --text-2: #9dc3cc;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'JetBrains Mono', monospace;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px;
+}
+.container { max-width: 520px; width: 100%; }
+.logo { text-align: center; margin-bottom: 40px; }
+.logo h1 {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 6px;
+  background: linear-gradient(135deg, var(--cyan), var(--teal));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.logo .sub {
+  font-size: 11px;
+  color: var(--text-2);
+  letter-spacing: 4px;
+  margin-top: 4px;
+}
+.card {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 20px;
+}
+.card h2 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cyan);
+  letter-spacing: 2px;
+  margin-bottom: 12px;
+}
+.card p {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+.diagram {
+  text-align: center;
+  padding: 16px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.diagram .arrow { color: var(--cyan); margin: 0 8px; }
+.diagram .node {
+  display: inline-block;
+  padding: 8px 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin: 4px;
+}
+.diagram .node.highlight {
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+.url-box {
+  background: var(--bg);
+  border: 1px solid var(--cyan-dim);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin: 16px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.url-box code {
+  flex: 1;
+  font-size: 12px;
+  color: var(--teal);
+  word-break: break-all;
+}
+.url-box button {
+  background: var(--cyan);
+  color: var(--bg);
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+.url-box button:hover { opacity: 0.85; }
+.steps-list {
+  counter-reset: steps;
+  list-style: none;
+  padding: 0;
+}
+.steps-list li {
+  counter-increment: steps;
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+.steps-list li::before {
+  content: counter(steps);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(56, 224, 255, 0.1);
+  border: 1px solid var(--cyan-dim);
+  color: var(--cyan);
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.steps-list li a { color: var(--cyan); text-decoration: none; }
+.steps-list li a:hover { text-decoration: underline; }
+.examples {
+  margin-top: 12px;
+  padding: 12px 16px;
+  background: var(--bg);
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+.examples .ex {
+  font-size: 12px;
+  color: var(--orange);
+  margin-bottom: 6px;
+  font-style: italic;
+}
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 32px;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(135deg, var(--cyan), var(--teal));
+  color: var(--bg);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s;
+  width: 100%;
+  margin-top: 16px;
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(56, 224, 255, 0.3); }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="logo">
+    <h1>J.A.R.V.I.S.</h1>
+    <div class="sub">CONNECT YOUR COACH</div>
+  </div>
+
+  <div class="card">
+    <h2>HOW IT WORKS</h2>
+    <p>JARVIS is your visual dashboard. Claude is your voice coach. Talk to Claude on your phone — watch JARVIS update on your screen.</p>
+    <div class="diagram">
+      <span class="node highlight">Claude</span>
+      <span class="arrow">→ MCP →</span>
+      <span class="node">JARVIS</span>
+      <span class="arrow">→</span>
+      <span class="node">Dashboard</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>YOUR MCP CONNECTOR URL</h2>
+    <p>Copy this URL and paste it into Claude Desktop's connector settings.</p>
+    <div class="url-box">
+      <code id="mcp-url">{{ mcp_url }}</code>
+      <button onclick="copyUrl()">COPY</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>SETUP STEPS</h2>
+    <ol class="steps-list">
+      <li>Download <a href="https://claude.ai/download" target="_blank">Claude Desktop</a> (or use claude.ai)</li>
+      <li>Open <strong>Settings → Connectors</strong></li>
+      <li>Click <strong>"Add MCP Connector"</strong></li>
+      <li>Paste the URL above and save</li>
+      <li>Start talking to Claude about your training:</li>
+    </ol>
+    <div class="examples">
+      <div class="ex">"Show me my workout for today"</div>
+      <div class="ex">"I just did 4 sets of bench at 135 lb"</div>
+      <div class="ex">"Design me a 4-day push/pull program"</div>
+      <div class="ex">"How's my training consistency this month?"</div>
+    </div>
+  </div>
+
+  <a href="/" class="btn-primary">GO TO DASHBOARD →</a>
+</div>
+
+<script>
+function copyUrl() {
+  const url = document.getElementById('mcp-url').textContent;
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.querySelector('.url-box button');
+    btn.textContent = 'COPIED!';
+    setTimeout(() => btn.textContent = 'COPY', 2000);
+  });
+}
+</script>
+</body>
+</html>
