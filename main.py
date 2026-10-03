@@ -62,7 +62,7 @@ def _get_openai_client():
             _openai_client = OpenAI(api_key=key)
     return _openai_client
 
-APP_VERSION = "5.0.5"
+APP_VERSION = "5.1.4"
 
 app = FastAPI(title="JARVIS Workout Assistant")
 
@@ -1058,7 +1058,7 @@ async def api_upload_photo(request: Request):
 
 
 @app.get("/api/progress-photos")
-async def api_list_photos(limit: int = 20, date_from: str = None, date_to: str = None):
+async def api_list_photos(limit: int = 200, date_from: str = None, date_to: str = None):
     """List progress photos (metadata only, no binary data)."""
     photos = get_progress_photos(limit=limit, date_from=date_from, date_to=date_to)
     return JSONResponse({"photos": photos})
@@ -1076,6 +1076,34 @@ async def api_get_photo(photo_id: int):
         headers={"Cache-Control": "public, max-age=86400"}
     )
 
+
+@app.put("/api/progress-photo/{photo_id}")
+async def api_update_photo(photo_id: int, request: Request):
+    """Update photo metadata."""
+    body = await request.json()
+    from database import update_photo
+    return JSONResponse(update_photo(photo_id, 
+        date=body.get("date"),
+        photo_type=body.get("type"),
+        angle=body.get("angle"),
+        notes=body.get("notes")))
+
+@app.post("/api/photos/fix-bodyweight")
+async def api_fix_photo_bodyweight():
+    """Clear bodyweight from all photos not from today."""
+    from database import _raw_conn, _local_today
+    today = _local_today()
+    conn = _raw_conn()
+    try:
+        cursor = conn.execute(
+            "UPDATE progress_photos SET bodyweight = NULL WHERE bodyweight IS NOT NULL",
+            ()
+        )
+        conn.commit()
+        fixed = cursor.rowcount
+    finally:
+        conn.close()
+    return JSONResponse({"ok": True, "fixed": fixed})
 
 @app.delete("/api/progress-photo/{photo_id}")
 async def api_delete_photo(photo_id: int):

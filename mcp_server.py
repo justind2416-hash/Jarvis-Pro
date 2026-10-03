@@ -59,7 +59,13 @@ from database import (
     get_planned_vs_actual,
     get_or_create_today_session,
     audit,
-    _local_today)
+    _local_today,
+    get_photos_for_mcp,
+    update_photo,
+    soft_delete_photo,
+    backfill_planned_program,
+    skip_exercise,
+    save_dispatch_report)
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 DATA_DIR.mkdir(exist_ok=True)
@@ -518,6 +524,59 @@ def get_variance_report_tool(args):
         session_id=args.get('session_id'),
         date=args.get('date'),
     )
+
+
+def get_photos_tool(args):
+    return {"photos": get_photos_for_mcp(
+        start_date=args.get("start_date"),
+        end_date=args.get("end_date"),
+        photo_type=args.get("type", "progress"),
+        angle=args.get("angle"),
+        limit=args.get("limit", 50),
+        include_demo=args.get("include_demo", False),
+        include_image=args.get("include_image", False)
+    )}
+
+def update_photo_tool(args):
+    pid = args.get("photo_id")
+    if not pid:
+        return {"error": "photo_id required"}
+    return update_photo(int(pid), date=args.get("date"), photo_type=args.get("type"),
+                        angle=args.get("angle"), notes=args.get("notes"),
+                        bodyweight=args.get("bodyweight"))
+
+def delete_photo_tool(args):
+    pid = args.get("photo_id")
+    if not pid:
+        return {"error": "photo_id required"}
+    return soft_delete_photo(int(pid), reason=args.get("reason", ""))
+
+def backfill_plan_tool(args):
+    schedule = args.get("schedule", [])
+    if not schedule:
+        return {"error": "schedule required"}
+    return backfill_planned_program(schedule)
+
+def skip_exercise_tool(args):
+    session_id = args.get("session_id")
+    exercise = args.get("exercise")
+    if not exercise:
+        return {"error": "exercise name required"}
+    if not session_id:
+        from database import get_or_create_today_session
+        session_id = get_or_create_today_session()
+    return skip_exercise(session_id, exercise, 
+                         reason=args.get("reason", "skipped_by_user"),
+                         detail=args.get("detail", ""))
+
+def submit_dispatch_tool(args):
+    report = args.get("report")
+    if not report:
+        return {"error": "report text required"}
+    return save_dispatch_report(report, 
+                                category=args.get("category", "session_report"),
+                                priority=args.get("priority", "normal"))
+
 
 TOOLS = {
     "get_profile": {
@@ -1054,6 +1113,71 @@ TOOLS = {
             "session_id": {"type": "string"}, "date": {"type": "string"}
         }},
         "fn": get_variance_report_tool,
+    },
+    "get_photos": {
+        "description": "Get progress photos with metadata. Returns id, date, type (progress/segment/other), angle, url, notes, bodyweight. Excludes segment dividers by default.",
+        "schema": {"type": "object", "properties": {
+            "start_date": {"type": "string", "description": "YYYY-MM-DD"},
+            "end_date": {"type": "string", "description": "YYYY-MM-DD"},
+            "type": {"type": "string", "description": "progress (default), segment, other, or all"},
+            "angle": {"type": "string", "description": "front, side, back, other"},
+            "limit": {"type": "integer", "description": "Max photos, default 50"},
+            "include_demo": {"type": "boolean"},
+            "include_image": {"type": "boolean", "description": "Return base64 image data inline. Use sparingly for large batches."}
+        }},
+        "fn": get_photos_tool,
+    },
+    "update_photo": {
+        "description": "Update photo metadata: date, type (progress/segment/other), angle, notes. Use to correct backfilled photos.",
+        "schema": {"type": "object", "properties": {
+            "photo_id": {"type": "integer"},
+            "date": {"type": "string"},
+            "type": {"type": "string", "description": "progress, segment, other"},
+            "angle": {"type": "string"},
+            "notes": {"type": "string"},
+            "bodyweight": {"type": "number", "description": "Bodyweight in lbs to associate with this photo"}
+        }, "required": ["photo_id"]},
+        "fn": update_photo_tool,
+    },
+    "delete_photo": {
+        "description": "Soft-delete a progress photo.",
+        "schema": {"type": "object", "properties": {
+            "photo_id": {"type": "integer"},
+            "reason": {"type": "string"}
+        }, "required": ["photo_id"]},
+        "fn": delete_photo_tool,
+    },
+    "backfill_planned_program": {
+        "description": "Write plans for PAST dates with backfilled=true marker. Unlike set_planned_program, this allows past dates for honest reconstruction. Backfilled plans are clearly distinguished from prescriptive plans.",
+        "schema": {"type": "object", "properties": {
+            "schedule": {"type": "array", "description": "Array of daily plans with date, program_name, exercises, warmup, carry_forward, description, notes",
+                "items": {"type": "object", "properties": {
+                    "date": {"type": "string"}, "program_name": {"type": "string"},
+                    "exercises": {"type": "array"}, "warmup": {"type": "array"},
+                    "carry_forward": {"type": "array"}, "description": {"type": "string"},
+                    "notes": {"type": "string"}
+                }, "required": ["date", "program_name", "exercises"]}}
+        }, "required": ["schedule"]},
+        "fn": backfill_plan_tool,
+    },
+    "skip_exercise": {
+        "description": "Skip an exercise, set, or block in the current session. Records the skip with reason and logs a deviation. reason: skipped_by_coach, skipped_by_user, not_attempted.",
+        "schema": {"type": "object", "properties": {
+            "exercise": {"type": "string", "description": "Exercise name to skip"},
+            "session_id": {"type": "string", "description": "Session ID (defaults to current)"},
+            "reason": {"type": "string", "description": "skipped_by_coach, skipped_by_user, not_attempted"},
+            "detail": {"type": "string", "description": "Why it was skipped"}
+        }, "required": ["exercise"]},
+        "fn": skip_exercise_tool,
+    },
+    "submit_dispatch_report": {
+        "description": "Submit a report to dispatch (the orchestration layer). The coach should show the report to the athlete and get approval BEFORE calling this. Categories: session_report, bug_report, feature_request, data_issue, coaching_note.",
+        "schema": {"type": "object", "properties": {
+            "report": {"type": "string", "description": "The full report text to deliver"},
+            "category": {"type": "string", "description": "session_report, bug_report, feature_request, data_issue, coaching_note"},
+            "priority": {"type": "string", "description": "normal, urgent"}
+        }, "required": ["report"]},
+        "fn": submit_dispatch_tool,
     },
         "get_chat_context": {
         "description": "Get recent conversation messages for context continuity.",

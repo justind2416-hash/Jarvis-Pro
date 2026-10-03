@@ -425,6 +425,8 @@ main {
 .bw-log { display: flex; gap: 8px; margin-top: 12px; }
 .bw-log input { flex: 1; min-width: 0; height: 44px; border-radius: 10px; border: 1px solid var(--line-2); background: rgba(3,7,11,0.7); color: var(--text); padding: 0 12px; font-size: 15px; }
 .photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.photo-date-group { margin-bottom: 16px; }
+.photo-date-label { font-size: 9px; letter-spacing: 0.2em; color: var(--text-3); margin-bottom: 6px; padding-left: 2px; }
 .photos figure { aspect-ratio: 3/4; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); position: relative; background: #050a10; }
 .photos img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .photos figcaption { position: absolute; left: 0; right: 0; bottom: 0; font-size: 9px; letter-spacing: 0.1em; padding: 4px 6px; background: linear-gradient(0deg, rgba(0,0,0,0.8), transparent); color: var(--text-2); }
@@ -694,19 +696,7 @@ select.field { font-size: 12px; letter-spacing: 0.06em; appearance: none; -webki
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
 
-/* Gear menu + feedback */
-.gear-menu {
-  position: absolute; top: 48px; right: 12px; z-index: 200;
-  background: var(--panel-solid); border: 1px solid var(--line); border-radius: 8px;
-  padding: 4px 0; min-width: 160px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-}
-.gear-menu.hidden { display: none; }
-.gear-item {
-  display: block; width: 100%; padding: 10px 16px; background: none; border: none;
-  color: var(--text-2); font-family: 'JetBrains Mono', monospace; font-size: 12px;
-  text-align: left; cursor: pointer; text-decoration: none;
-}
-.gear-item:hover { background: rgba(56, 224, 255, 0.06); color: var(--cyan); }
+/* Settings modal styles merged into main modal */
 #feedback-modal {
   position: fixed; inset: 0; z-index: 300; display: none;
   align-items: flex-end; justify-content: center;
@@ -747,13 +737,7 @@ select.field { font-size: 12px; letter-spacing: 0.06em; appearance: none; -webki
   <div class="hdr-status" aria-live="off">
     <span id="sync-status" class="busy"><i class="g">◌</i>SYNCING...</span>
     <span class="sep">·</span>
-    <span id="net-status" class="ok"><i class="g">●</i>ONLINE</span>
-    <span class="sep">·</span>
-    <button id="gear-btn" onclick="toggleGearMenu()" style="background:none;border:none;color:var(--text-2);cursor:pointer;font-size:14px;padding:2px 4px;" title="Settings">⚙</button>
-  </div>
-  <div id="gear-menu" class="gear-menu hidden">
-    <a href="/coach" class="gear-item">Connect Coach</a>
-    <button class="gear-item" onclick="openFeedback()">Send Feedback</button>
+    <span id="net-status" class="ok"><i class="g">●</i>ONLINE</span><button onclick="openSettings()" style="background:none;border:none;cursor:pointer;padding:0 0 0 6px;color:var(--text-3);font-size:11px;line-height:1;" title="Settings" aria-label="Settings">⚙</button>
   </div>
 </header>
 
@@ -876,9 +860,15 @@ select.field { font-size: 12px; letter-spacing: 0.06em; appearance: none; -webki
     <div class="card" id="stats-history"><div class="empty">LOADING…</div></div>
     <div class="section-title"><h2>Progress photos</h2><span class="aux" id="photos-aux"></span></div>
     <div class="card">
-      <div class="photo-bar">
-        <div class="seg" id="photo-angle"><button data-v="front" class="on">FRONT</button><button data-v="side">SIDE</button><button data-v="back">BACK</button></div>
-        <label class="btn-ghost small" style="display:inline-flex;align-items:center;cursor:pointer">+ ADD PHOTO<input type="file" accept="image/*" id="photo-input" class="hidden"></label>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <label class="btn-ghost small" style="flex:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;gap:6px;">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+          UPLOAD PHOTOS<input type="file" accept="image/*" id="photo-input" class="hidden" multiple>
+        </label>
+        <button class="btn-ghost small" onclick="capturePhoto()" style="display:inline-flex;align-items:center;gap:6px;">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          CAMERA
+        </button>
       </div>
       <div id="stats-photos"><div class="empty">LOADING…</div></div>
     </div>
@@ -1128,7 +1118,9 @@ const WARMUP_REST = 45;
 
 const S = {
   tab: null,
-  plan: null,          // /api/today-workout
+  plan: null,
+  sessionMode: localStorage.getItem('jarvis-session-mode') || 'auto', // 'quick', 'detailed', 'auto'
+  exerciseModeOverrides: {}, // per-exercise overrides for this session          // /api/today-workout
   session: null,       // /api/session/current
   activity: null,      // /api/activity-stats
   schedule: null,      // /api/schedule-preview
@@ -1206,6 +1198,25 @@ function buzz(p) { try { navigator.vibrate && navigator.vibrate(p); } catch (e) 
 
 // ── exercise model ──────────────────────────────────────────────────────
 // Build a flat queue from the plan. Each item: {key, name, group, sets, ex, schema}
+function getExMode(exerciseName, schemaType) {
+  // Per-exercise override takes priority
+  if (S.exerciseModeOverrides[exerciseName]) return S.exerciseModeOverrides[exerciseName];
+  // Session mode
+  if (S.sessionMode === 'quick') return 'quick';
+  if (S.sessionMode === 'detailed') return 'detailed';
+  // Auto mode: use exercise type to decide
+  const simpleTypes = ['mobility', 'mobility_bilateral', 'duration_hold', 'cardio_zone', 'test'];
+  return simpleTypes.includes(schemaType) ? 'quick' : 'detailed';
+}
+
+function toggleExMode(name) {
+  const current = S.exerciseModeOverrides[name];
+  const schema = S.plan && S.plan.exercises ? (S.plan.exercises.find(e => e.name === name) || {}).schema_type : '';
+  const effective = getExMode(name, schema);
+  S.exerciseModeOverrides[name] = effective === 'quick' ? 'detailed' : 'quick';
+  renderTrain();
+}
+
 function buildQueue(plan, added) {
   if (!plan) return [];
   const q = [];
@@ -1850,7 +1861,7 @@ function renderTrain() {
   main.innerHTML = `<div class="card ex-card glow" id="ex-card">
     <div class="ex-top">
       <div class="ex-top-main">
-        <div class="ex-head"><div class="ex-kicker ${kClass}">${kLabel}</div><div class="ex-count">${idx} / ${tot}</div></div>
+        <div class="ex-head"><div class="ex-kicker ${kClass}">${kLabel}</div><div class="ex-count"><button onclick="toggleExMode('${esc(it.name)}')" style="background:none;border:1px solid var(--line);border-radius:4px;padding:2px 6px;font-size:8px;color:var(--text-3);cursor:pointer;font-family:var(--font);letter-spacing:0.1em;" title="Toggle tracking mode">${getExMode(it.name, it.ex.schema_type) === 'quick' ? '⚡' : '📊'}</button> ${idx} / ${tot}</div></div>
         <div class="ex-name" id="ex-name">${esc(it.name)}</div>
         <div class="ex-spec">${specText(it)}</div>
       </div>
@@ -1859,8 +1870,8 @@ function renderTrain() {
     ${cues ? `<div class="ex-cues">${cues}</div>` : ''}
     ${video}
     <div class="set-row"><div class="set-dots">${dots}</div><button class="btn-addset" data-addset="${esc(it.key)}" aria-label="Add a set to ${esc(it.name)}">+ SET</button></div>
-    <div class="sd-cap">SET ${Math.min(setNo, Math.max(it.sets, setNo))} OF ${it.sets}${lastSetCap ? ' · ' + lastSetCap : ''}</div>
-    <div class="steppers ${cls}">
+    <div class="sd-cap" ${getExMode(it.name, it.ex.schema_type) === 'quick' ? 'style="display:none"' : ''}>SET ${Math.min(setNo, Math.max(it.sets, setNo))} OF ${it.sets}${lastSetCap ? ' · ' + lastSetCap : ''}</div>
+    <div class="steppers ${cls}" ${getExMode(it.name, it.ex.schema_type) === 'quick' ? 'style="display:none"' : ''}>
       ${fields.map(f => `<div class="stepper">
         <div class="l">${esc(f.l)}</div>
         <div class="row">
@@ -1872,7 +1883,13 @@ function renderTrain() {
       </div>`).join('')}
     </div>
     ${cmpHtml}
-    <button class="btn-primary btn-complete" id="btn-complete" onclick="completeSet()" ${S.busy ? 'disabled' : ''}>${S.busy ? 'LOGGING…' : 'COMPLETE SET'}</button>
+    ${getExMode(it.name, it.ex.schema_type) === 'quick' ? \`
+      <button class="btn-primary teal btn-complete" id="btn-complete" onclick="quickComplete()" \${S.busy ? 'disabled' : ''} style="min-height:76px;font-size:18px;">
+        \${S.busy ? 'LOGGING…' : '✓ DONE'}
+      </button>
+    \` : \`
+      <button class="btn-primary btn-complete" id="btn-complete" onclick="completeSet()" \${S.busy ? 'disabled' : ''}>\${S.busy ? 'LOGGING…' : 'COMPLETE SET'}</button>
+    \`}
   </div>`;
   bindSteppers(it);
   const as = main.querySelector('[data-addset]');
@@ -2192,8 +2209,31 @@ function write(path, body) {
 }
 
 // ── actions ─────────────────────────────────────────────────────────────
-async function startWorkout() {
+async function startWorkout(mode) {
   if (S.busy || !S.plan) return;
+  // If no mode specified, show the picker
+  if (!mode) {
+    openModal('START WORKOUT', `
+      <div style="text-align:center;padding:8px 0 16px;">
+        <div style="font-size:12px;color:var(--text-2);margin-bottom:16px;">How do you want to track this session?</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <button class="btn-primary" onclick="closeModal(); startWorkout('quick');" style="padding:18px;font-size:15px;">
+            ⚡ QUICK LOG<br><span style="font-size:11px;font-weight:400;color:var(--text-2);">Tap to check off exercises. No weight/reps.</span>
+          </button>
+          <button class="btn-primary" onclick="closeModal(); startWorkout('detailed');" style="padding:18px;font-size:15px;">
+            📊 FULL TRACKING<br><span style="font-size:11px;font-weight:400;color:var(--text-2);">Weight, reps, RPE — the full picture.</span>
+          </button>
+          <button class="btn-ghost" onclick="closeModal(); startWorkout('auto');" style="padding:14px;font-size:13px;">
+            🔀 AUTO<br><span style="font-size:10px;color:var(--text-3);">Simple for warm-ups/mobility, detailed for lifts.</span>
+          </button>
+        </div>
+      </div>
+    ');
+    return;
+  }
+  S.sessionMode = mode;
+  S.exerciseModeOverrides = {};
+  localStorage.setItem('jarvis-session-mode', mode);
   S.busy = true;
   const b = $('btn-start'); if (b) { b.disabled = true; b.textContent = 'INITIALIZING…'; }
   const mySeq = ++S.seq;
@@ -2207,6 +2247,33 @@ async function startWorkout() {
   } catch (e) {
     toast('Could not start session: ' + e.message, 'JARVIS // ERROR', true);
   } finally { S.busy = false; render(); }
+}
+
+async function quickComplete() {
+  if (S.busy) return;
+  S.busy = true;
+  const d = derive();
+  if (!d.cur) { S.busy = false; return; }
+  const it = d.cur;
+  const btn = $('btn-complete'); if (btn) { btn.disabled = true; btn.textContent = 'LOGGING…'; }
+  const mySeq = ++S.seq;
+  try {
+    // Log all remaining sets at once for this exercise
+    const remaining = it.sets - it.logged.length;
+    for (let i = 0; i < Math.max(1, remaining); i++) {
+      await write('/api/set/log', {
+        exercise: it.name,
+        weight: it.ex.weight || 'bodyweight',
+        reps: it.ex.reps || '1',
+        notes: 'Quick log'
+      });
+    }
+    S.inputs = {};
+    buzz(20);
+    await refresh({ localSeq: mySeq });
+  } catch (e) {
+    toast('Quick log failed: ' + e.message, 'JARVIS // ERROR', true);
+  } finally { S.busy = false; if (S.tab === 'train') renderTrain(); }
 }
 
 async function completeSet() {
@@ -2735,7 +2802,7 @@ async function loadStatsExtras() {
 async function renderStatsExtras() {
   segInit('bw-range', 'bwRange', renderBwChart);
   segInit('vol-mode', 'volMode', renderVolume);
-  segInit('photo-angle', 'photoAngle', () => {});
+  // photo-angle segment removed — angle picker dropped in v5.1
   await loadStatsExtras();
   if (S.tab !== 'stats') return;
   renderGoals(); renderBwChart(); renderVolume(); renderMeasurements(); renderPhotos();
@@ -2958,11 +3025,21 @@ function renderMeasurements() {
 async function renderPhotos() {
   const box = $('stats-photos');
   try {
-    const photos = (await api('/api/progress-photos?limit=30')).photos || [];
+    const photos = (await api('/api/progress-photos?limit=200')).photos || [];
     S.photos = photos;
     $('photos-aux').textContent = photos.length ? photos.length + ' SAVED' : '';
-    box.innerHTML = photos.length ? '<div class="photos">' + photos.map(p => `<figure data-photo="${esc(p.id)}" role="button" tabindex="0"><img loading="lazy" src="/api/progress-photo/${encodeURIComponent(p.id)}" alt="Progress photo ${esc(p.date)} ${esc(p.angle || '')}"><figcaption>${esc(String(p.date || '').slice(5))} · ${esc((p.angle || '').toUpperCase())}${p.bodyweight ? ' · ' + esc(p.bodyweight) : ''}</figcaption></figure>`).join('') + '</div>'
-      : '<div class="empty">NO PROGRESS PHOTOS YET — SAME LIGHT, SAME SPOT, EVERY 2 WEEKS</div>';
+    // Group photos by date
+    const byDate = {};
+    photos.forEach(p => { const d = p.date || 'unknown'; (byDate[d] = byDate[d] || []).push(p); });
+    const dates = Object.keys(byDate).sort().reverse();
+    box.innerHTML = photos.length ? dates.map(d => {
+      const ps = byDate[d];
+      const dateLabel = parseLocalDate(d).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase();
+      return '<div class="photo-date-group"><div class="photo-date-label">' + dateLabel + ' · ' + ps.length + ' PHOTO' + (ps.length > 1 ? 'S' : '') + '</div><div class="photos">' +
+        ps.map(p => '<figure data-photo="' + esc(p.id) + '" role="button" tabindex="0"><img loading="lazy" src="/api/progress-photo/' + encodeURIComponent(p.id) + '" alt="Progress photo ' + esc(p.date) + '"><figcaption>' + (p.angle ? esc(p.angle.toUpperCase()) + ' · ' : '') + (p.bodyweight ? esc(p.bodyweight) + ' LB' : '') + '</figcaption></figure>').join('') +
+        '</div></div>';
+    }).join('')
+      : '<div class="empty">NO PROGRESS PHOTOS YET — UPLOAD FROM YOUR PHOTO LIBRARY</div>';
     box.querySelectorAll('figure[data-photo]').forEach(f => {
       const open = () => openPhoto(Number(f.dataset.photo));
       f.addEventListener('click', open);
@@ -2988,19 +3065,95 @@ async function deletePhoto(id) {
   try { await api('/api/progress-photo/' + id, { method: 'DELETE' }); closeModal(); toast('Photo deleted.', 'JARVIS // PHOTO'); renderPhotos(); }
   catch (e) { toast('Delete failed: ' + e.message, 'JARVIS // ERROR', true); }
 }
+$('photo-input').setAttribute('multiple', '');
 $('photo-input').addEventListener('change', async (e) => {
-  const file = e.target.files && e.target.files[0];
+  const files = Array.from(e.target.files || []);
   e.target.value = '';
-  if (!file) return;
-  toast('Uploading…', 'JARVIS // PHOTO');
-  try {
-    const dataUrl = await downscale(file, 1400);
-    const bw = (S.bw || [])[0];
-    await api('/api/progress-photo', { method: 'POST', body: { photo: dataUrl, angle: S.photoAngle || 'front', date: localISO(), bodyweight: bw && bw.date >= localISO(new Date(Date.now() - 3 * 864e5)) ? bw.weight_lbs : null } });
-    toast('Progress photo saved.', 'JARVIS // PHOTO');
-    renderPhotos();
-  } catch (err) { toast('Upload failed: ' + err.message, 'JARVIS // ERROR', true); }
+  if (!files.length) return;
+  const total = files.length;
+  toast('Uploading 0/' + total + '…', 'JARVIS // PHOTO');
+  const bw = (S.bw || [])[0];
+  let ok = 0, fail = 0;
+  for (let i = 0; i < files.length; i++) {
+    try {
+      const dataUrl = await downscale(files[i], 1400);
+      const photoDate = await extractExifDate(files[i]) || localISO();
+      // Only attach bodyweight if the photo is from today
+      const isToday = photoDate === localISO();
+      const photoBw = isToday && bw && bw.date >= localISO(new Date(Date.now() - 3 * 864e5)) ? bw.weight_lbs : null;
+      await api('/api/progress-photo', { method: 'POST', body: {
+        photo: dataUrl,
+        angle: '',
+        date: photoDate,
+        bodyweight: photoBw
+      }});
+      ok++;
+    } catch (err) { fail++; }
+    // Update progress every 5 photos or on the last one
+    if ((i + 1) % 5 === 0 || i === files.length - 1) {
+      toast('Uploading ' + (i + 1) + '/' + total + ' (' + ok + ' saved)…', 'JARVIS // PHOTO');
+    }
+  }
+  toast(ok + ' photo' + (ok !== 1 ? 's' : '') + ' saved' + (fail ? ', ' + fail + ' failed' : '') + '.', 'JARVIS // PHOTO');
+  renderPhotos();
 });
+
+// Extract date from EXIF metadata
+function capturePhoto() {
+  // Create a temporary file input for camera capture
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.capture = 'environment';
+  input.onchange = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    toast('Uploading…', 'JARVIS // PHOTO');
+    try {
+      const dataUrl = await downscale(file, 1400);
+      const bw = (S.bw || [])[0];
+      await api('/api/progress-photo', { method: 'POST', body: {
+        photo: dataUrl, angle: '', date: localISO(),
+        bodyweight: bw && bw.date >= localISO(new Date(Date.now() - 3 * 864e5)) ? bw.weight_lbs : null
+      }});
+      toast('Photo saved.', 'JARVIS // PHOTO');
+      renderPhotos();
+    } catch (err) { toast('Capture failed: ' + err.message, 'JARVIS // ERROR', true); }
+  };
+  input.click();
+}
+
+async function extractExifDate(file) {
+  try {
+    const buf = await file.slice(0, 128 * 1024).arrayBuffer();
+    const view = new DataView(buf);
+    // Check for JPEG SOI marker
+    if (view.getUint16(0) !== 0xFFD8) return null;
+    let offset = 2;
+    while (offset < view.byteLength - 4) {
+      const marker = view.getUint16(offset);
+      if (marker === 0xFFE1) { // APP1 (EXIF)
+        const len = view.getUint16(offset + 2);
+        const exifStr = String.fromCharCode(view.getUint8(offset+4), view.getUint8(offset+5), view.getUint8(offset+6), view.getUint8(offset+7));
+        if (exifStr === 'Exif') {
+          // Search for date pattern in the EXIF block
+          const block = new Uint8Array(buf, offset + 4, Math.min(len, buf.byteLength - offset - 4));
+          const text = Array.from(block).map(b => b >= 32 && b < 127 ? String.fromCharCode(b) : ' ').join('');
+          // Look for YYYY:MM:DD HH:MM:SS pattern
+          const dateMatch = text.match(/(20\d{2}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
+          if (dateMatch) {
+            return dateMatch[1] + '-' + dateMatch[2] + '-' + dateMatch[3];
+          }
+        }
+        offset += 2 + len;
+      } else if ((marker & 0xFF00) === 0xFF00) {
+        if (marker === 0xFFDA) break; // Start of scan — stop
+        offset += 2 + view.getUint16(offset + 2);
+      } else break;
+    }
+    return null;
+  } catch(e) { return null; }
+}
 function downscale(file, max) {
   return new Promise((res, rej) => {
     const img = new Image();
@@ -3026,6 +3179,54 @@ function openModal(title, html, onClose) {
   modalOnClose = onClose || null;
   $('modal-sheet').scrollTop = 0;
 }
+function openSettings() {
+  openModal('SETTINGS', `
+    <div style="padding:8px 0;">
+      <div style="font-size:10px;letter-spacing:0.2em;color:var(--text-3);margin-bottom:8px;">DEFAULT SESSION MODE</div>
+      <div style="display:flex;gap:6px;margin-bottom:16px;">
+        <button class="btn-ghost small ${S.sessionMode === 'quick' ? 'active' : ''}" onclick="S.sessionMode='quick';localStorage.setItem('jarvis-session-mode','quick');openSettings();" style="flex:1;${S.sessionMode === 'quick' ? 'border-color:var(--cyan);color:var(--cyan);' : ''}">⚡ Quick</button>
+        <button class="btn-ghost small ${S.sessionMode === 'detailed' ? 'active' : ''}" onclick="S.sessionMode='detailed';localStorage.setItem('jarvis-session-mode','detailed');openSettings();" style="flex:1;${S.sessionMode === 'detailed' ? 'border-color:var(--cyan);color:var(--cyan);' : ''}">📊 Detailed</button>
+        <button class="btn-ghost small ${S.sessionMode === 'auto' ? 'active' : ''}" onclick="S.sessionMode='auto';localStorage.setItem('jarvis-session-mode','auto');openSettings();" style="flex:1;${S.sessionMode === 'auto' ? 'border-color:var(--cyan);color:var(--cyan);' : ''}">🔀 Auto</button>
+      </div>
+      <div style="font-size:9px;color:var(--text-3);line-height:1.5;margin-bottom:20px;">
+        <b>Quick:</b> Tap to check off exercises. No weight/reps.<br>
+        <b>Detailed:</b> Weight, reps, RPE — full tracking.<br>
+        <b>Auto:</b> Simple for warm-ups, detailed for lifts.
+      </div>
+      <div style="border-top:1px solid var(--line);padding-top:16px;">
+        <a href="/coach" style="display:block;padding:10px 0;color:var(--text-2);text-decoration:none;font-size:12px;letter-spacing:0.1em;">Connect Coach →</a>
+        <button onclick="closeModal();openFeedbackModal();" style="display:block;width:100%;text-align:left;padding:10px 0;background:none;border:none;color:var(--text-2);cursor:pointer;font-family:var(--font);font-size:12px;letter-spacing:0.1em;">Send Feedback →</button>
+      </div>
+    </div>
+  ');
+}
+
+function openFeedbackModal() {
+  const fb = document.getElementById('feedback-modal');
+  if (fb) fb.classList.add('show');
+}
+
+function closeFeedback() {
+  const fb = document.getElementById('feedback-modal');
+  if (fb) fb.classList.remove('show');
+}
+
+async function submitFeedback() {
+  const cat = document.getElementById('fb-category');
+  const msg = document.getElementById('fb-message');
+  if (!msg || !msg.value.trim()) { toast('Please enter a message.', 'JARVIS // FEEDBACK', true); return; }
+  try {
+    await api('/api/feedback', { method: 'POST', body: {
+      category: cat ? cat.value : 'other',
+      message: msg.value.trim(),
+      page_context: S.tab || ''
+    }});
+    toast('Feedback sent — thank you!', 'JARVIS // FEEDBACK');
+    closeFeedback();
+    if (msg) msg.value = '';
+  } catch (e) { toast('Failed: ' + e.message, 'JARVIS // ERROR', true); }
+}
+
 function closeModal() {
   if ($('modal').classList.contains('hidden')) return;
   $('modal').classList.add('hidden');
