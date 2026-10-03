@@ -822,10 +822,10 @@ select.field { font-size: 12px; letter-spacing: 0.06em; appearance: none; -webki
     <div class="section-title" style="margin-top:14px"><h2>Last 30 days</h2><span class="aux" id="stats-range"></span></div>
     <div class="kpi-row" id="stats-kpis"></div>
 
-    <div class="section-title"><h2>Goals</h2><span class="aux" id="goals-aux"></span></div>
+    <div data-module="goals"><div class="section-title"><h2>Goals</h2><span class="aux" id="goals-aux"></span></div>
     <div id="stats-goals"><div class="card"><div class="empty">LOADING…</div></div></div>
 
-    <div class="section-title"><h2>Body weight</h2>
+    <div data-module="bodyweight"><div class="section-title"><h2>Body weight</h2>
       <div class="seg" id="bw-range"><button data-v="7">7D</button><button data-v="30" class="on">30D</button><button data-v="90">90D</button></div>
     </div>
     <div class="card" id="stats-bw-card">
@@ -834,7 +834,7 @@ select.field { font-size: 12px; letter-spacing: 0.06em; appearance: none; -webki
       <div class="bw-log"><input id="bw-input" type="number" inputmode="decimal" step="0.1" placeholder="Today's weight (lb)"><button class="btn-ghost" onclick="logBodyweight()">LOG</button></div>
     </div>
 
-    <div class="section-title"><h2>Volume by muscle</h2>
+    <div data-module="volume"><div class="section-title"><h2>Volume by muscle</h2>
       <div class="seg" id="vol-mode"><button data-v="sets" class="on">SETS</button><button data-v="load">LB</button></div>
     </div>
     <div class="card">
@@ -842,7 +842,7 @@ select.field { font-size: 12px; letter-spacing: 0.06em; appearance: none; -webki
       <div id="vol-week"></div>
     </div>
 
-    <div class="section-title"><h2>Measurements</h2><button class="btn-ghost small" id="ms-toggle" onclick="toggleMeasureForm()">+ LOG</button></div>
+    <div data-module="measurements"><div class="section-title"><h2>Measurements</h2><button class="btn-ghost small" id="ms-toggle" onclick="toggleMeasureForm()">+ LOG</button></div>
     <div class="card">
       <div id="ms-form-wrap" class="hidden"></div>
       <div style="display:flex;gap:8px;align-items:center">
@@ -852,13 +852,13 @@ select.field { font-size: 12px; letter-spacing: 0.06em; appearance: none; -webki
       <div class="ms-table" id="ms-table"></div>
     </div>
 
-    <div class="section-title"><h2>Frequency</h2><span class="aux" id="stats-freq-aux"></span></div>
+    <div data-module="frequency"><div class="section-title"><h2>Frequency</h2><span class="aux" id="stats-freq-aux"></span></div>
     <div class="card"><div class="heat" id="stats-heat"></div><div class="heat-legend"><span id="heat-from"></span><span>TAP A DAY</span><span>TODAY</span></div><div id="heat-detail"></div></div>
-    <div class="section-title"><h2>Personal records</h2><span class="aux">30D BEST</span></div>
+    <div data-module="prs"><div class="section-title"><h2>Personal records</h2><span class="aux">30D BEST</span></div>
     <div class="card" id="stats-prs"><div class="empty">LOADING…</div></div>
-    <div class="section-title"><h2>History</h2><span class="aux">TAP FOR SETS</span></div>
+    <div data-module="history"><div class="section-title"><h2>History</h2><span class="aux">TAP FOR SETS</span></div>
     <div class="card" id="stats-history"><div class="empty">LOADING…</div></div>
-    <div class="section-title"><h2>Progress photos</h2><span class="aux" id="photos-aux"></span></div>
+    <div data-module="photos"><div class="section-title"><h2>Progress photos</h2><span class="aux" id="photos-aux"></span></div>
     <div class="card">
       <div style="display:flex;gap:8px;margin-bottom:12px;">
         <label class="btn-ghost small" style="flex:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;gap:6px;">
@@ -1119,7 +1119,8 @@ const WARMUP_REST = 45;
 const S = {
   tab: null,
   plan: null,
-  sessionMode: localStorage.getItem('jarvis-session-mode') || 'auto', // 'quick', 'detailed', 'auto'
+  sessionMode: localStorage.getItem('jarvis-session-mode') || 'auto',
+  modules: JSON.parse(localStorage.getItem('jarvis-modules') || '{}'), // 'quick', 'detailed', 'auto'
   exerciseModeOverrides: {}, // per-exercise overrides for this session          // /api/today-workout
   session: null,       // /api/session/current
   activity: null,      // /api/activity-stats
@@ -1198,6 +1199,41 @@ function buzz(p) { try { navigator.vibrate && navigator.vibrate(p); } catch (e) 
 
 // ── exercise model ──────────────────────────────────────────────────────
 // Build a flat queue from the plan. Each item: {key, name, group, sets, ex, schema}
+// Module visibility
+const MODULE_DEFS = [
+  { key: 'goals', label: 'Goals', section: 'stats', default: true },
+  { key: 'bodyweight', label: 'Body weight', section: 'stats', default: true },
+  { key: 'volume', label: 'Volume by muscle', section: 'stats', default: true },
+  { key: 'measurements', label: 'Measurements', section: 'stats', default: true },
+  { key: 'frequency', label: 'Frequency', section: 'stats', default: true },
+  { key: 'prs', label: 'Personal records', section: 'stats', default: true },
+  { key: 'history', label: 'Workout history', section: 'stats', default: true },
+  { key: 'photos', label: 'Progress photos', section: 'stats', default: true },
+  { key: 'coaching', label: 'Coaching panel', section: 'home', default: true },
+  { key: 'upnext', label: 'Up next (HOME)', section: 'home', default: true },
+  { key: 'coach_notes', label: 'Coach notes (TRAIN)', section: 'train', default: true },
+];
+
+function isModuleOn(key) {
+  if (S.modules[key] !== undefined) return S.modules[key];
+  const def = MODULE_DEFS.find(m => m.key === key);
+  return def ? def.default : true;
+}
+
+function toggleModule(key) {
+  S.modules[key] = !isModuleOn(key);
+  localStorage.setItem('jarvis-modules', JSON.stringify(S.modules));
+  applyModuleVisibility();
+  openSettings();
+}
+
+function applyModuleVisibility() {
+  document.querySelectorAll('[data-module]').forEach(el => {
+    const key = el.dataset.module;
+    el.style.display = isModuleOn(key) ? '' : 'none';
+  });
+}
+
 function getExMode(exerciseName, schemaType) {
   // Per-exercise override takes priority
   if (S.exerciseModeOverrides[exerciseName]) return S.exerciseModeOverrides[exerciseName];
@@ -3481,6 +3517,7 @@ function render() {
   else if (S.tab === 'train') renderTrain();
   else if (S.tab === 'stats') { if (S.activity && S.statsDirty) { S.statsDirty = false; renderStats(); } }
   else if (S.tab === 'plan') renderPlan();
+  applyModuleVisibility();
 }
 
 // ── BOOT ────────────────────────────────────────────────────────────────
