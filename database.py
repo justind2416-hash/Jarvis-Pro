@@ -2926,6 +2926,17 @@ EXERCISE_SCHEMA_MAP = {
     "Single-Leg Calf Raise": "strength_unilateral",
     # Cardio
     "Treadmill incline walk": "treadmill",
+    "Treadmill Walk": "treadmill",
+    "Treadmill Cooldown Walk": "treadmill",
+    "Run Block 1": "treadmill",
+    "Run Block 2": "treadmill",
+    "Walk Break": "treadmill",
+    "Walk Recovery": "treadmill",
+    "Cooldown Walk": "treadmill",
+    "Treadmill Run": "treadmill",
+    "Easy Run": "treadmill",
+    "Tempo Run": "treadmill",
+    "Long Run": "treadmill",
     "Long easy walk": "cardio_zone",
     "Stretching strap work": "mobility",
     # General
@@ -2939,7 +2950,22 @@ EXERCISE_SCHEMA_MAP = {
 
 def get_exercise_schema(exercise_name: str) -> dict:
     """Get the schema for an exercise. Falls back to strength_standard."""
-    schema_type = EXERCISE_SCHEMA_MAP.get(exercise_name, "strength_standard")
+    schema_type = EXERCISE_SCHEMA_MAP.get(exercise_name)
+    if not schema_type:
+        # Fuzzy match for common patterns
+        name_lower = exercise_name.lower() if exercise_name else ""
+        if any(w in name_lower for w in ["treadmill", "run block", "walk break", "walk recovery", "cooldown walk", "easy run", "tempo run"]):
+            schema_type = "treadmill"
+        elif any(w in name_lower for w in ["pelvic tilt", "wall angel", "cat cow", "arm circle"]):
+            schema_type = "mobility"
+        elif any(w in name_lower for w in ["bird dog", "hip opener", "leg swing", "band external"]):
+            schema_type = "mobility_bilateral"
+        elif any(w in name_lower for w in ["plank", "dead hang", "hollow body", "hold"]):
+            schema_type = "duration_hold"
+        elif any(w in name_lower for w in ["carry", "farmer"]):
+            schema_type = "carry"
+        else:
+            schema_type = "strength_standard"
     schema = EXERCISE_TYPES.get(schema_type, EXERCISE_TYPES["strength_standard"])
     return {
         "type": schema_type,
@@ -3196,3 +3222,298 @@ def get_audit_log(limit: int = 50, event: str = None) -> list:
         ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PROGRESS PHOTOS — MCP TOOLS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def get_photos_for_mcp(start_date: str = None, end_date: str = None, 
+                       photo_type: str = "progress", angle: str = None, 
+                       limit: int = 50, include_demo: bool = False,
+                       include_image: bool = False) -> list:
+    """Get progress photos with metadata for the coaching layer.
+    include_image=True returns base64 image data inline (use sparingly for large batches)."""
+    conn = _raw_conn()
+    try:
+        conditions = []
+        params = []
+        
+        # Check if type column exists
+        has_type = True
+        try:
+            conn.execute("SELECT type FROM progress_photos LIMIT 0")
+        except Exception:
+            has_type = False
+        
+        if photo_type and photo_type != 'all' and has_type:
+            conditions.append("COALESCE(type, 'progress') = ?")
+            params.append(photo_type)
+        
+        if start_date:
+            conditions.append("date >= ?")
+            params.append(start_date)
+        
+        if end_date:
+            conditions.append("date <= ?")
+            params.append(end_date)
+        
+        if angle:
+            conditions.append("angle = ?")
+            params.append(angle)
+        
+        if not include_demo:
+            conditions.append("(is_demo IS NULL OR is_demo = 0)")
+        
+        where = " AND ".join(conditions) if conditions else "1=1"
+        
+        select_cols = "id, date, " + ("COALESCE(type, 'progress') as type, " if has_type else "'progress' as type, ") + "angle, notes, bodyweight, mime_type, length(photo_data) as size_bytes, timestamp"
+        if include_image:
+            select_cols += ", photo_data"
+        
+        # Cap at 10 when returning images to keep response size manageable
+        effective_limit = min(limit, 10) if include_image else limit
+        
+        rows = conn.execute(
+            f"SELECT {select_cols} FROM progress_photos WHERE {where} ORDER BY date DESC, id DESC LIMIT ?",
+            (*params, effective_limit)
+        ).fetchall()
+        
+        # Get bodyweight history for pairing
+        bw_rows = conn.execute(
+            "SELECT date, weight_lbs FROM bodyweight ORDER BY date DESC LIMIT 200"
+        ).fetchall()
+        bw_by_date = {r['date']: r['weight_lbs'] for r in bw_rows}
+        bw_dates = sorted(bw_by_date.keys())
+        
+        def nearest_bw(photo_date, max_gap_days=7):
+            """Find nearest bodyweight within max_gap_days."""
+            if not photo_date or not bw_dates:
+                return None
+            # Exact match first
+            if photo_date in bw_by_date:
+                return bw_by_date[photo_date]
+            # Search nearby dates
+            from datetime import datetime as dt, timedelta
+            try:
+                pd = dt.strptime(photo_date, '%Y-%m-%d').date()
+            except Exception:
+                return None
+            best = None
+            best_gap = max_gap_days + 1
+            for bd_str in bw_dates:
+                try:
+                    bd = dt.strptime(bd_str, '%Y-%m-%d').date()
+                    gap = abs((pd - bd).days)
+                    if gap <= max_gap_days and gap < best_gap:
+                        best = bw_by_date[bd_str]
+                        best_gap = gap
+                except Exception:
+                    continue
+            return best
+        
+        import os
+        base_url = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "")
+        if base_url and not base_url.startswith("http"):
+            base_url = "https://" + base_url
+        
+        results = []
+        for r in rows:
+            d = dict(r)
+            # Full URL
+            d["url"] = f"{base_url}/api/progress-photo/{d['id']}" if base_url else f"/api/progress-photo/{d['id']}"
+            # Pair bodyweight from nearest weigh-in if not already set
+            if not d.get("bodyweight"):
+                d["bodyweight"] = nearest_bw(d.get("date"))
+                if d["bodyweight"]:
+                    d["bodyweight_source"] = "nearest_weighin"
+            # Base64 image if requested
+            if include_image and 'photo_data' in d and d['photo_data']:
+                import base64
+                from io import BytesIO
+                try:
+                    from PIL import Image
+                    raw = bytes(d['photo_data']) if isinstance(d['photo_data'], memoryview) else d['photo_data']
+                    img = Image.open(BytesIO(raw))
+                    # Downscale to 1024px on the long edge
+                    max_dim = 1024
+                    if max(img.size) > max_dim:
+                        ratio = max_dim / max(img.size)
+                        new_size = (int(img.size[0] * ratio), int(img.size[1] * ratio))
+                        img = img.resize(new_size, Image.LANCZOS)
+                    buf = BytesIO()
+                    img.save(buf, format='JPEG', quality=80)
+                    d['image_base64'] = base64.b64encode(buf.getvalue()).decode('ascii')
+                    d['mime_type'] = 'image/jpeg'
+                except Exception:
+                    # Fallback: raw base64 without downscaling
+                    raw = bytes(d['photo_data']) if isinstance(d['photo_data'], memoryview) else d['photo_data']
+                    d['image_base64'] = base64.b64encode(raw).decode('ascii')
+                del d['photo_data']
+            elif 'photo_data' in d:
+                del d['photo_data']
+            results.append(d)
+        
+        return results
+    finally:
+        conn.close()
+
+
+def update_photo(photo_id: int, date: str = None, photo_type: str = None, 
+                 angle: str = None, notes: str = None, bodyweight: float = None) -> dict:
+    """Update photo metadata (date, type, angle, notes)."""
+    conn = _raw_conn()
+    try:
+        updates = []
+        params = []
+        
+        if date is not None:
+            updates.append("date = ?")
+            params.append(date)
+        if photo_type is not None:
+            updates.append("type = ?")
+            params.append(photo_type)
+        if angle is not None:
+            updates.append("angle = ?")
+            params.append(angle)
+        if notes is not None:
+            updates.append("notes = ?")
+            params.append(notes)
+        if bodyweight is not None:
+            updates.append("bodyweight = ?")
+            params.append(bodyweight)
+        
+        if not updates:
+            return {"error": "Nothing to update"}
+        
+        params.append(photo_id)
+        conn.execute(f"UPDATE progress_photos SET {', '.join(updates)} WHERE id = ?", params)
+        conn.commit()
+        return {"ok": True, "photo_id": photo_id}
+    finally:
+        conn.close()
+
+
+def soft_delete_photo(photo_id: int, reason: str = "") -> dict:
+    """Soft-delete a progress photo."""
+    conn = _raw_conn()
+    try:
+        conn.execute(
+            "UPDATE progress_photos SET deleted_at = ?, deleted_reason = ? WHERE id = ?",
+            (_now_ts(), reason, photo_id)
+        )
+        conn.commit()
+        return {"ok": True, "photo_id": photo_id, "action": "soft_deleted"}
+    finally:
+        conn.close()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PLAN BACKFILL — write past plans with backfilled marker
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def backfill_planned_program(schedule: list) -> dict:
+    """Write plans for past dates with backfilled=true marker.
+    Unlike set_planned_program, this ALLOWS past dates but marks them clearly."""
+    saved = 0
+    stamp = _now_ts()
+    with get_db() as conn:
+        for day in schedule:
+            planned_date = day.get("date")
+            if not planned_date:
+                continue
+            
+            workout_data = json.dumps({
+                "warmup": day.get("warmup", []),
+                "exercises": day.get("exercises", []),
+                "carry_forward": day.get("carry_forward", []),
+                "description": day.get("description", ""),
+            })
+            
+            # Supersede any existing plan for this date
+            conn.execute(
+                "UPDATE planned_workouts SET superseded_at = ? WHERE planned_date = ? AND superseded_at IS NULL",
+                (stamp, planned_date)
+            )
+            
+            conn.execute(
+                """INSERT INTO planned_workouts 
+                   (planned_date, program_name, workout_data, notes, is_backfill, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, TRUE, ?, ?)""",
+                (planned_date, day.get("program_name", ""), workout_data, 
+                 day.get("notes", "Backfilled plan"), stamp, stamp)
+            )
+            saved += 1
+    
+    return {"saved": saved, "backfilled": True, 
+            "dates": [d["date"] for d in schedule if d.get("date")]}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SKIP CONTROL — skip sets, exercises, or blocks with reason
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def skip_exercise(session_id: str, exercise_name: str, reason: str = "skipped_by_user", 
+                  detail: str = "") -> dict:
+    """Skip an exercise in the current session. Logs it as a deviation.
+    reason: skipped_by_coach, skipped_by_user, not_attempted"""
+    conn = _raw_conn()
+    try:
+        # Log a set with 0 reps to mark it as attempted/skipped
+        conn.execute(
+            """INSERT INTO workout_sets (session_id, exercise, weight, reps, rpe, notes, timestamp)
+               VALUES (?, ?, 'skipped', '0', '', ?, ?)""",
+            (session_id, exercise_name, f"SKIPPED: {reason} - {detail}", _now_ts())
+        )
+        
+        # Log a deviation
+        conn.execute(
+            """INSERT INTO set_deviations (session_id, exercise, deviation_type, reason_code, 
+               attribution, detail, planned_notes, actual_notes, timestamp)
+               VALUES (?, ?, 'skipped', ?, ?, ?, 'Planned exercise', 'Skipped')""",
+            (session_id, exercise_name, reason, 
+             'coach_directed' if 'coach' in reason else 'athlete_initiated',
+             detail, _now_ts())
+        )
+        
+        conn.commit()
+        audit("exercise_skipped", f"{exercise_name}: {reason} - {detail}", source="mcp", session_id=session_id)
+        return {"ok": True, "exercise": exercise_name, "status": reason, "detail": detail}
+    finally:
+        conn.close()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DISPATCH REPORT — coach submits reports to dispatch
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def save_dispatch_report(report_text: str, category: str = "session_report", 
+                         priority: str = "normal") -> dict:
+    """Save a dispatch report for delivery. The coach shows it to the user first."""
+    conn = _raw_conn()
+    try:
+        # Ensure table exists
+        try:
+            conn.execute("""CREATE TABLE IF NOT EXISTS dispatch_reports (
+                id SERIAL PRIMARY KEY,
+                report_text TEXT NOT NULL,
+                category TEXT DEFAULT 'session_report',
+                priority TEXT DEFAULT 'normal',
+                status TEXT DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT NOW(),
+                delivered_at TIMESTAMP
+            )""")
+            conn.commit()
+        except Exception:
+            pass
+        
+        conn.execute(
+            "INSERT INTO dispatch_reports (report_text, category, priority) VALUES (?, ?, ?)",
+            (report_text, category, priority)
+        )
+        conn.commit()
+        audit("dispatch_report_submitted", f"Category: {category}, Priority: {priority}", source="mcp")
+        return {"ok": True, "category": category, "priority": priority,
+                "note": "Report saved. Will be delivered to dispatch on next check."}
+    finally:
+        conn.close()
