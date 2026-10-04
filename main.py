@@ -105,7 +105,7 @@ async def onboard_page(request: Request):
     if _is_onboarded():
         from starlette.responses import RedirectResponse
         return RedirectResponse(url="/", status_code=302)
-    return templates.TemplateResponse("onboard.html", {"request": request})
+    return templates.TemplateResponse(name="onboard.html", request=request)
 
 
 @app.post("/api/onboard")
@@ -205,8 +205,7 @@ async def coach_page(request: Request):
     secret = os.environ.get("MCP_SECRET", "")
     mcp_url = f"{base}/mcp/{secret}" if secret else f"{base}/mcp"
     profile = _load("profile.json", DEFAULT_PROFILE)
-    return templates.TemplateResponse("coach.html", {
-        "request": request,
+    return templates.TemplateResponse(name="coach.html", request=request, context={
         "mcp_url": mcp_url,
         "athlete_name": profile.get("name", "Athlete"),
     })
